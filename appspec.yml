@@ -1,0 +1,49 @@
+version: 0.0
+os: linux
+
+files:
+  - source: /
+    destination: /opt/docohpp
+    overwrite: yes
+    file_exists_behavior: OVERWRITE
+
+permissions:
+  - object: /opt/docohpp
+    pattern: "**"
+    owner: ec2-user
+    group: ec2-user
+    mode: 755
+  - object: /opt/docohpp/scripts
+    pattern: "**"
+    owner: ec2-user
+    group: ec2-user
+    mode: 755
+
+hooks:
+  BeforeInstall:
+    - location: scripts/stop-application.sh
+      timeout: 60
+      runas: ec2-user
+
+  AfterInstall:
+    - location: scripts/install-dependencies.sh
+      timeout: 300
+      runas: root
+    - location: scripts/change-permissions.sh
+      timeout: 60
+      runas: root
+
+  ApplicationStart:
+    - location: scripts/start-application.sh
+      timeout: 120
+      runas: ec2-user
+
+  ApplicationStop:
+    - location: scripts/stop-application.sh
+      timeout: 60
+      runas: ec2-user
+
+  ValidateService:
+    - location: scripts/valdiate-service.sh
+      timeout: 60
+      runas: ec2-user
