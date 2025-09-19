@@ -35,6 +35,7 @@ build/
 ### AWS & Sensitive Files ###
 # IAM policies with account-specific ARNs
 iam-policies/
+bucket-policy.json
 
 # AWS credentials and config
 .aws/
