@@ -2,6 +2,46 @@
 
 Doc_Ohpp is a Spring Boot application designed for document processing, integrating with AWS services such as S3, DynamoDB, and SQS.
 
+## Architecture Overview
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Client/Web    │    │  Spring Boot    │    │   AWS Services  │
+│   Application   │    │   Application   │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │ 1. Upload Document    │                       │
+         ├──────────────────────►│                       │
+         │                       │                       │
+         │                       │ 2. Store File         │
+         │                       ├──────────────────────►│ Amazon S3
+         │                       │   (docohpp-documents-behu-20250827-001)
+         │                       │                       │
+         │                       │ 3. Save Metadata      │
+         │                       ├──────────────────────►│ DynamoDB
+         │                       │   (Doc_Ohpp table)    │
+         │                       │                       │
+         │                       │ 4. Send Message       │
+         │                       ├──────────────────────►│ SQS Queue
+         │                       │   (docoh-processing-queue)
+         │                       │                       │
+         │ 5. Response           │                       │
+         │◄──────────────────────┤                       │
+         │                       │                       │
+```
+
+### Data Flow
+1. **Document Upload**: User uploads a document via REST API endpoint
+2. **S3 Storage**: Application stores the document file in S3 bucket
+3. **Metadata Storage**: Document metadata is saved to DynamoDB table
+4. **Queue Message**: Processing message is sent to SQS queue for async processing
+5. **Response**: Upload confirmation is returned to the client
+
+### AWS Resources
+- **S3 Bucket**: `docohpp-documents-behu-20250827-001` (eu-north-1)
+- **DynamoDB Table**: `Doc_Ohpp` with partition key `documentId` (String)
+- **SQS Queue**: `docoh-processing-queue` (Standard queue)
+
 ## Features
 
 - Spring Boot 3.5.5 (Java 21)
@@ -19,14 +59,114 @@ Doc_Ohpp is a Spring Boot application designed for document processing, integrat
 
 ## Getting Started
 
-1. Build the project:
-   ```sh
-   mvn clean install
-   ```
-2. Run the application:
-   ```sh
-   mvn spring-boot:run
-   ```
+### Prerequisites
+- Java 21 (Amazon Corretto 21 recommended)
+- Maven 3.6+
+- AWS CLI configured with credentials
+- Access to AWS resources (S3, DynamoDB, SQS)
+
+### How to Run Locally
+
+#### 1. Build and Test the Application
+
+First, clean and test the project to ensure everything is working correctly:
+
+```bash
+# Clean and run all tests
+mvn clean test
+
+# Build the application package
+mvn clean package
+```
+
+#### 2. Start the Application
+
+Run the Spring Boot application locally:
+
+```bash
+# Start the application in development mode
+mvn spring-boot:run
+```
+
+The application will start on `http://localhost:8080` by default.
+
+#### 3. Test the Endpoints
+
+Once the application is running, test the following endpoints to verify functionality:
+
+**Health Check Endpoint:**
+```bash
+# Check application health
+curl http://localhost:8080/api/documents/health
+
+# Expected response: 200 OK
+```
+
+**List Documents Endpoint:**
+```bash
+# List all documents
+curl http://localhost:8080/api/documents
+
+# Expected response: 200 OK with JSON array of documents
+```
+
+**Document Statistics Endpoint:**
+```bash
+# Get document processing statistics
+curl http://localhost:8080/api/documents/stats
+
+# Expected response: 200 OK with statistics JSON
+```
+
+**Alternative: Test with Web Browser**
+You can also test these endpoints by opening them directly in your web browser:
+- Health: http://localhost:8080/api/documents/health
+- Documents: http://localhost:8080/api/documents  
+- Statistics: http://localhost:8080/api/documents/stats
+
+#### 4. Upload Test Document (Optional)
+
+To test the complete document processing workflow:
+
+```bash
+# Create a test file
+echo "This is a test document for Doc_Ohpp" > test-document.txt
+
+# Upload the document
+curl -X POST -F "file=@test-document.txt" http://localhost:8080/api/documents/upload
+
+# Verify the document was processed by checking the list
+curl http://localhost:8080/api/documents
+```
+
+#### 5. View Application Logs
+
+Monitor the application logs in the terminal where you ran `mvn spring-boot:run` to see:
+- AWS service interactions
+- Document processing status
+- Any errors or warnings
+
+#### Troubleshooting
+
+**Common Issues:**
+- **Port 8080 already in use**: Change the port in `application.properties` with `server.port=8081`
+- **AWS credentials not found**: Run `aws configure` to set up your credentials
+- **AWS services unavailable**: Ensure your IAM role has proper permissions and AWS resources exist
+
+**Quick Build Commands Reference:**
+```bash
+# Full clean build and test
+mvn clean install
+
+# Skip tests during build (faster)
+mvn clean package -DskipTests
+
+# Run tests only
+mvn test
+
+# Run specific test class
+mvn test -Dtest=DocumentControllerTest
+```
 
 ## Configuration
 
@@ -41,8 +181,146 @@ Run all tests with:
 
 ## AWS Integration
 
-- S3: File storage
-- DynamoDB: Metadata storage
-- SQS: Messaging
+### Prerequisites
+Ensure you have the following AWS resources provisioned:
+- S3 bucket for document storage
+- DynamoDB table for metadata
+- SQS queue for message processing
+- Proper IAM permissions for your application
 
----
+### Configuration
+Update `src/main/resources/application.properties` with your AWS settings:
+
+```properties
+aws.region=eu-north-1
+aws.s3.bucket-name=docohpp-documents-behu-20250827-001
+aws.dynamodb.table-name=Doc_Ohpp
+aws.sqs.queue-name=docoh-processing-queue
+```
+
+### Verification
+To verify AWS integration is working correctly, run the verification script:
+
+**Windows:**
+```cmd
+verify-aws-integration.bat
+```
+
+**Linux/Mac:**
+```bash
+./verify-aws-integration.sh
+```
+
+This will:
+1. Upload a test document
+2. Check if the file appears in S3
+3. Verify metadata is stored in DynamoDB
+4. Confirm SQS message was sent
+
+### Services Integration
+- **S3Service**: Handles file upload/download operations
+- **DynamoDBService**: Manages document metadata persistence  
+- **SQSService**: Sends and receives processing messages
+- **DocumentProcessingService**: Orchestrates the complete document workflow
+
+## IAM Roles & Policies
+
+### Overview
+The Doc_Ohpp application implements least-privilege IAM roles and policies for secure AWS service access. All roles follow the principle of least privilege, granting only the minimum permissions required for each service to function.
+
+### EC2 Instance Role: `DocOhpp-EC2-InstanceRole`
+**Purpose**: Allows EC2 instances running the Doc_Ohpp application to access AWS services.
+
+**Attached Policies**:
+- `DocOhpp-S3-Policy`: S3 bucket access for document storage
+- `DocOhpp-DynamoDB-Policy`: DynamoDB table operations for metadata
+- `DocOhpp-SQS-Policy`: SQS queue messaging operations
+- `DocOhpp-XRay-Policy`: X-Ray tracing capabilities
+- `DocOhpp-CloudWatch-Policy`: CloudWatch Logs for application logging
+
+**Instance Profile**: `DocOhpp-EC2-InstanceProfile`
+
+#### Specific Permissions:
+```
+S3 Permissions:
+- s3:PutObject, s3:GetObject, s3:DeleteObject on docohpp-documents-behu-20250827-001/*
+- s3:ListBucket on docohpp-documents-behu-20250827-001
+
+DynamoDB Permissions:
+- dynamodb:PutItem, GetItem, UpdateItem, DeleteItem, Scan on Doc_Ohpp table
+
+SQS Permissions:
+- sqs:SendMessage, GetQueueAttributes, ReceiveMessage, DeleteMessage on docoh-processing-queue
+
+X-Ray Permissions:
+- xray:PutTraceSegments, xray:PutTelemetryRecords (global)
+
+CloudWatch Permissions:
+- logs:CreateLogGroup, CreateLogStream, PutLogEvents on /aws/ec2/docohpp* and /application/docohpp*
+```
+
+### CodeBuild Service Role: `DocOhpp-CodeBuild-ServiceRole`
+**Purpose**: Allows CodeBuild to build the Doc_Ohpp application from source code.
+
+**Attached Policies**:
+- `DocOhpp-CodeBuild-Policy`: Custom policy for build operations
+
+#### Specific Permissions:
+```
+CloudWatch Logs:
+- logs:CreateLogGroup, CreateLogStream, PutLogEvents on /aws/codebuild/docohpp*
+
+S3 Artifacts:
+- s3:GetBucketAcl, GetBucketLocation, GetObject, GetObjectVersion, PutObject
+- Access to CodePipeline and CodeBuild artifact buckets
+
+Source Code Access:
+- codecommit:GitPull for source repository access
+- ssm:GetParameters for build parameters
+```
+
+### CodeDeploy Service Role: `DocOhpp-CodeDeploy-ServiceRole`
+**Purpose**: Allows CodeDeploy to deploy the application to EC2 instances.
+
+**Attached Policies**:
+- `DocOhpp-CodeDeploy-Policy`: Custom policy for deployment operations
+- `AWSCodeDeployRole`: AWS managed policy for EC2 deployments
+
+#### Specific Permissions:
+```
+EC2 Access:
+- ec2:DescribeInstances, DescribeInstanceStatus
+- tag:GetResources for tagged instance discovery
+
+Auto Scaling:
+- autoscaling:CompleteLifecycleAction, DeleteLifecycleHook, DescribeLifecycleHooks
+- autoscaling:DescribeAutoScalingGroups, PutLifecycleHook, RecordLifecycleActionHeartbeat
+
+Role Management:
+- iam:PassRole for DocOhpp-* roles
+```
+
+### Security Best Practices Implemented
+1. **Least Privilege**: Each role has only the minimum permissions required
+2. **Resource-Specific ARNs**: Policies target specific resources rather than using wildcards
+3. **Service-Specific Roles**: Separate roles for different services (EC2, CodeBuild, CodeDeploy)
+4. **No Cross-Service Access**: Roles cannot access resources outside their intended scope
+5. **Regional Restrictions**: Policies are scoped to eu-north-1 region where applicable
+
+### IAM Verification
+To verify IAM permissions are working correctly, run the verification script:
+
+**Windows:**
+```cmd
+verify-iam-permissions.bat
+```
+
+This script uses AWS IAM Policy Simulator to validate that:
+1. EC2 instances can access S3, DynamoDB, SQS, and X-Ray
+2. CodeBuild can access required logging and artifact resources
+3. CodeDeploy can manage EC2 deployments
+
+### Usage Instructions
+1. **For EC2 Deployment**: Attach the `DocOhpp-EC2-InstanceProfile` to your EC2 instances
+2. **For CodeBuild**: Use `DocOhpp-CodeBuild-ServiceRole` as the service role in build projects
+3. **For CodeDeploy**: Use `DocOhpp-CodeDeploy-ServiceRole` as the service role in deployment configurations

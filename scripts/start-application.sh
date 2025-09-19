@@ -15,7 +15,7 @@ fi
 echo "Found JAR file: $JAR_FILE"
 
 # Set up environment variables
-export JAVA_HOME=/usr/lib/jvm/java-22-amazon-corretto
+export JAVA_HOME=/usr/lib/jvm/java-21-amazon-corretto
 export PATH=$JAVA_HOME/bin:$PATH
 
 # AWS credentials should be available through EC2 instance role

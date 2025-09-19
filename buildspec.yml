@@ -2,14 +2,14 @@ version: 0.2
 
 env:
   variables:
-    JAVA_HOME: "/usr/lib/jvm/java-22-amazon-corretto"
+    JAVA_HOME: "/usr/lib/jvm/java-21-amazon-corretto"
     MAVEN_HOME: "/opt/maven"
     MAVEN_OPTS: "-Xmx1024m"
 
 phases:
   install:
     runtime-versions:
-      java: corretto22
+      java: corretto21
     commands:
       - echo "Installing dependencies..."
       - yum update -y

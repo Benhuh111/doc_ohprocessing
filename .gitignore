@@ -31,3 +31,29 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### AWS & Sensitive Files ###
+# IAM policies with account-specific ARNs
+iam-policies/
+
+# AWS credentials and config
+.aws/
+aws-credentials
+*.pem
+*.key
+
+# Environment and configuration files
+.env
+.env.local
+.env.production
+application-local.properties
+application-dev.properties
+application-prod.properties
+
+# Test files that may contain sensitive data
+test-document.txt
+**/test-*.txt
+
+# Verification scripts output
+verification-output.txt
+iam-verification-output.txt

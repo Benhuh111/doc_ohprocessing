@@ -3,12 +3,12 @@ echo "Installing system dependencies..."
 # Update system packages
 yum update -y
 
-# Install Java 22 if not present
-if ! command -v java &> /dev/null || ! java -version 2>&1 | grep -q "22"; then
-    echo "Installing Amazon Corretto 22..."
-    yum install -y java-22-amazon-corretto
+# Install Java 21 if not present
+if ! command -v java &> /dev/null || ! java -version 2>&1 | grep -q "21"; then
+    echo "Installing Amazon Corretto 21..."
+    yum install -y java-21-amazon-corretto
 else
-    echo "Java 22 already installed"
+    echo "Java 21 already installed"
 fi
 
 # Install CloudWatch agent if not present
