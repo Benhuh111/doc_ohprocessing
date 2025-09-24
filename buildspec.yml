@@ -14,7 +14,7 @@ phases:
       - java -version
       - mvn -version
       - echo "Available memory:"
-      - free -h || echo "Memory info not available"
+      - "free -h || echo 'Memory info not available'"
       - echo "MAVEN_OPTS: $MAVEN_OPTS"
 
   pre_build:
@@ -23,7 +23,7 @@ phases:
       - pwd
       - ls -la
       - echo "Checking Maven dependencies..."
-      - mvn dependency:resolve -q || echo "Dependency resolution failed"
+      - "mvn dependency:resolve -q || echo 'Dependency resolution failed'"
 
   build:
     commands:
@@ -41,9 +41,9 @@ phases:
     commands:
       - echo "=== Post-build phase started ==="
       - mkdir -p deployment
-      - cp target/*.jar deployment/ 2>/dev/null || echo "No JAR files to copy"
-      - cp appspec.yml deployment/ 2>/dev/null || echo "No appspec.yml to copy"
-      - cp -r scripts deployment/ 2>/dev/null || echo "No scripts directory to copy"
+      - "cp target/*.jar deployment/ 2>/dev/null || echo 'No JAR files to copy'"
+      - "cp appspec.yml deployment/ 2>/dev/null || echo 'No appspec.yml to copy'"
+      - "cp -r scripts deployment/ 2>/dev/null || echo 'No scripts directory to copy'"
       - echo "Deployment directory contents:"
       - ls -la deployment/
 
