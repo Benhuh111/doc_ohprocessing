@@ -19,39 +19,59 @@ phases:
     commands:
       - echo "Pre-build phase started"
       - pwd
-      - echo "Listing all files in src directory:"
-      - find src -type f -name "*.java" | head -20
-      - echo "Checking for main application class:"
+      - echo "Checking workspace structure:"
+      - ls -la
+      - echo "Checking src directory structure:"
+      - find src -type f -name "*.java" | head -20 || echo "No Java files found"
+      - echo "Verifying main application class:"
       - ls -la src/main/java/com/example/Doc_Ohpp/ || echo "Directory not found"
-      - cat src/main/java/com/example/Doc_Ohpp/DocOhppApplication.java || echo "Main class file not found"
+      - echo "Content check:"
+      - find . -name "*.java" -type f | head -10
       - echo "Resolving Maven dependencies"
       - mvn dependency:resolve -q
 
   build:
     commands:
       - echo "Build phase started"
-      - echo "Maven clean compile with verbose output"
+      - echo "Current directory structure before build:"
+      - ls -la
+      - echo "Maven clean and compile with detailed output"
       - mvn clean compile -e -X
-      - echo "Checking compiled classes:"
-      - find target -name "*.class" | head -10
-      - echo "Maven package with verbose output"
+      - echo "Checking compiled classes after compile:"
+      - find target -name "*.class" 2>/dev/null | head -10 || echo "No compiled classes found"
+      - echo "Maven package with detailed output"
       - mvn package -DskipTests -e -X
-      - echo "Build completed"
-      - ls -la target/
+      - echo "Build completed - checking target directory:"
+      - ls -la target/ || echo "Target directory not found"
 
   post_build:
     commands:
       - echo "Post-build phase started"
+      - echo "Creating deployment directory"
       - mkdir -p deployment
+      - echo "Current directory contents:"
+      - ls -la
+      - echo "Target directory contents:"
+      - ls -la target/ || echo "No target directory"
       - echo "Copying JAR files"
-      - cp target/*.jar deployment/
+      - find target -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" -exec cp {} deployment/ \; || echo "No JAR files found"
       - echo "Copying appspec.yml"
-      - cp appspec.yml deployment/
-      - echo "Copying scripts directory if it exists"
-      - if [ -d "scripts" ]; then cp -r scripts deployment/; else echo "No scripts directory found, skipping"; fi
-      - echo "Listing deployment directory contents:"
-      - ls -la deployment/
-      - ls -la deployment/scripts/ || echo "Scripts directory not found in deployment"
+      - cp appspec.yml deployment/ || echo "appspec.yml not found"
+      - echo "Copying scripts directory"
+      - if [ -d "scripts" ]; then 
+          cp -r scripts deployment/; 
+          echo "Scripts copied successfully";
+        else 
+          echo "Scripts directory not found"; 
+        fi
+      - echo "Final deployment directory structure:"
+      - ls -la deployment/ || echo "Deployment directory not created"
+      - if [ -d "deployment/scripts" ]; then
+          echo "Scripts in deployment directory:";
+          ls -la deployment/scripts/;
+        else
+          echo "No scripts directory in deployment";
+        fi
 
 artifacts:
   files:
