@@ -1,53 +1,51 @@
 version: 0.2
 
+env:
+  variables:
+    MAVEN_OPTS: "-Xmx1024m -Xms512m"
+    JAVA_TOOL_OPTIONS: "-Xmx1024m -Xms512m"
+
 phases:
   install:
     runtime-versions:
       java: corretto21
     commands:
       - echo "=== Environment Information ==="
-      - echo "Java version:"
       - java -version
-      - echo "Maven version:"
       - mvn -version
-      - echo "Environment variables:"
-      - printenv | grep -i java || true
+      - echo "Available memory:"
+      - free -h || echo "Memory info not available"
+      - echo "MAVEN_OPTS: $MAVEN_OPTS"
 
   pre_build:
     commands:
-      - echo "=== Pre-build phase started on `date` ==="
-      - echo "Current directory:"
+      - echo "=== Pre-build phase started ==="
       - pwd
-      - echo "Files in current directory:"
       - ls -la
-      - echo "Checking pom.xml:"
-      - cat pom.xml | head -20
+      - echo "Checking Maven dependencies..."
+      - mvn dependency:resolve -q || echo "Dependency resolution failed"
 
   build:
     commands:
-      - echo "=== Build phase started on `date` ==="
-      - echo "Starting Maven build..."
-      - mvn clean compile -X -e
-      - echo "Maven compile completed, now packaging..."
-      - mvn package -DskipTests -X -e
-      - echo "=== Build phase completed on `date` ==="
+      - echo "=== Build phase started ==="
+      - echo "Starting Maven clean compile..."
+      - mvn clean compile -q
+      - echo "Compile completed successfully"
+      - echo "Starting Maven package (skipping tests)..."
+      - mvn package -DskipTests -q
+      - echo "Package completed successfully"
+      - echo "Checking target directory:"
+      - ls -la target/
 
   post_build:
     commands:
-      - echo "=== Post-build phase started on `date` ==="
-      - echo "Checking target directory:"
-      - ls -la target/ || echo "No target directory found"
-      - echo "Creating deployment directory..."
+      - echo "=== Post-build phase started ==="
       - mkdir -p deployment
-      - echo "Copying JAR files:"
-      - cp target/*.jar deployment/ || echo "No JAR files found"
-      - echo "Copying appspec.yml:"
-      - cp appspec.yml deployment/ || echo "appspec.yml not found"
-      - echo "Copying scripts directory:"
-      - cp -r scripts deployment/ || echo "scripts directory not found"
-      - echo "Final deployment directory contents:"
+      - cp target/*.jar deployment/ 2>/dev/null || echo "No JAR files to copy"
+      - cp appspec.yml deployment/ 2>/dev/null || echo "No appspec.yml to copy"
+      - cp -r scripts deployment/ 2>/dev/null || echo "No scripts directory to copy"
+      - echo "Deployment directory contents:"
       - ls -la deployment/
-      - echo "=== Post-build phase completed on `date` ==="
 
 artifacts:
   files:
