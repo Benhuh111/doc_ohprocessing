@@ -1,490 +1,272 @@
-# Doc_Ohpp
+# Doc_Ohpp - Document Processing Application
 
-Doc_Ohpp is a Spring Boot application designed for document processing, integrating with AWS services such as S3, DynamoDB, and SQS.
+A Spring Boot application for document processing with AWS integration including S3, DynamoDB, SQS, X-Ray tracing, and CloudWatch monitoring.
 
 ## Architecture Overview
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Client/Web    │    │  Spring Boot    │    │   AWS Services  │
-│   Application   │    │   Application   │    │                 │
+│                 │    │                 │    │                 │
+│   Spring Boot   │───▶│   Amazon S3     │    │   Amazon SQS    │
+│   Application   │    │   (Documents)   │    │   (Processing)  │
+│                 │    │                 │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │ 1. Upload Document    │                       │
-         ├──────────────────────►│                       │
-         │                       │                       │
-         │                       │ 2. Store File         │
-         │                       ├──────────────────────►│ Amazon S3
-         │                       │   (docohpp-documents-behu-20250827-001)
-         │                       │                       │
-         │                       │ 3. Save Metadata      │
-         │                       ├──────────────────────►│ DynamoDB
-         │                       │   (Doc_Ohpp table)    │
-         │                       │                       │
-         │                       │ 4. Send Message       │
-         │                       ├──────────────────────►│ SQS Queue
-         │                       │   (docoh-processing-queue)
-         │                       │                       │
-         │ 5. Response           │                       │
-         │◄──────────────────────┤                       │
-         │                       │                       │
+         │
+         │
+         ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│                 │    │                 │    │                 │
+│   DynamoDB      │    │   AWS X-Ray     │    │   CloudWatch    │
+│   (Metadata)    │    │   (Tracing)     │    │   (Monitoring)  │
+│                 │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-### Data Flow
-1. **Document Upload**: User uploads a document via REST API endpoint
-2. **S3 Storage**: Application stores the document file in S3 bucket
-3. **Metadata Storage**: Document metadata is saved to DynamoDB table
-4. **Queue Message**: Processing message is sent to SQS queue for async processing
-5. **Response**: Upload confirmation is returned to the client
+## Prerequisites
 
-### AWS Resources
-- **S3 Bucket**: `docohpp-documents-behu-20250827-001` (eu-north-1)
-- **DynamoDB Table**: `Doc_Ohpp` with partition key `documentId` (String)
-- **SQS Queue**: `docoh-processing-queue` (Standard queue)
-
-## Features
-
-- Spring Boot 3.5.5 (Java 21)
-- AWS SDK v2 for S3, DynamoDB, and SQS
-- Modular service structure for AWS integrations
-- Placeholder for AWS X-Ray tracing
-
-## Project Structure
-
-- `config/` – AWS configuration classes
-- `controller/` – REST controllers (e.g., `DocumentController`)
-- `model/` – Data models (`Document`, `DocumentMetadata`)
-- `service/` – Service classes for S3, DynamoDB, SQS, and document processing
-- `test/` – Unit and integration tests
-
-## Getting Started
-
-### Prerequisites
-- Java 21 (Amazon Corretto 21 recommended)
+- Java 21 (Amazon Corretto)
 - Maven 3.6+
-- AWS CLI configured with credentials
-- Access to AWS resources (S3, DynamoDB, SQS)
+- AWS CLI configured with appropriate credentials
+- AWS Account with necessary permissions
 
-### How to Run Locally
+## AWS Resources Setup
 
-#### 1. Build and Test the Application
+### 1. S3 Bucket
+- **Name**: `doc-ohpp-documents-bucket` (or update `application.properties`)
+- **Purpose**: Store uploaded documents
+- **Policy**: Apply bucket policy to restrict access to application role
 
-First, clean and test the project to ensure everything is working correctly:
+### 2. DynamoDB Table
+- **Table Name**: `Doc_Ohpp`
+- **Partition Key**: `documentId` (String)
+- **Purpose**: Store document metadata and processing status
 
+### 3. SQS Queue
+- **Queue Name**: `docoh-processing-queue`
+- **Type**: Standard Queue
+- **Purpose**: Handle asynchronous document processing
+
+## How to Run Locally
+
+### Build and Test
 ```bash
-# Clean and run all tests
 mvn clean test
-
-# Build the application package
 mvn clean package
 ```
 
-#### 2. Start the Application
-
-Run the Spring Boot application locally:
-
+### Run the Application
 ```bash
-# Start the application in development mode
 mvn spring-boot:run
 ```
 
-The application will start on `http://localhost:8080` by default.
+### Test Endpoints
+- Health Check: `GET http://localhost:8080/api/documents/health` → 200
+- List Documents: `GET http://localhost:8080/api/documents` → 200
+- Statistics: `GET http://localhost:8080/api/documents/stats` → 200
 
-#### 3. Test the Endpoints
+## EC2 Instance Launch Process
 
-Once the application is running, test the following endpoints to verify functionality:
+### Step 1: Launch EC2 Instance
 
-**Health Check Endpoint:**
+1. **Launch Instance**:
+   - AMI: Amazon Linux 2
+   - Instance Type: t3.micro (or larger for production)
+   - Security Group: Allow inbound traffic on port 8080 from your IP/ALB
+   - Key Pair: Select your key pair for SSH access
+
+2. **Add Tags** (Required for CodeDeploy targeting):
+   ```
+   Key: Application    Value: DocOhpp
+   Key: Environment    Value: production
+   ```
+
+3. **IAM Role**: Attach the EC2 instance role with policies:
+   - `docohpp-s3-policy.json`
+   - `docohpp-dynamodb-policy.json`
+   - `docohpp-sqs-policy.json`
+   - `docohpp-xray-policy.json`
+   - `docohpp-cloudwatch-policy.json`
+
+### Step 2: Configure EC2 Instance
+
+**SSH into your instance:**
 ```bash
-# Check application health
-curl http://localhost:8080/api/documents/health
-
-# Expected response: 200 OK
+ssh -i your-key.pem ec2-user@your-ec2-public-ip
 ```
 
-**List Documents Endpoint:**
+**Download and run the setup script:**
 ```bash
-# List all documents
-curl http://localhost:8080/api/documents
+# Download the setup script
+curl -O https://raw.githubusercontent.com/Benhuh111/doc_ohprocessing/main/ec2-setup.sh
 
-# Expected response: 200 OK with JSON array of documents
-```
-
-**Document Statistics Endpoint:**
-```bash
-# Get document processing statistics
-curl http://localhost:8080/api/documents/stats
-
-# Expected response: 200 OK with statistics JSON
-```
-
-**Alternative: Test with Web Browser**
-You can also test these endpoints by opening them directly in your web browser:
-- Health: http://localhost:8080/api/documents/health
-- Documents: http://localhost:8080/api/documents  
-- Statistics: http://localhost:8080/api/documents/stats
-
-#### 4. Upload Test Document (Optional)
-
-To test the complete document processing workflow:
-
-```bash
-# Create a test file
-echo "This is a test document for Doc_Ohpp" > test-document.txt
-
-# Upload the document
-curl -X POST -F "file=@test-document.txt" http://localhost:8080/api/documents/upload
-
-# Verify the document was processed by checking the list
-curl http://localhost:8080/api/documents
-```
-
-#### 5. View Application Logs
-
-Monitor the application logs in the terminal where you ran `mvn spring-boot:run` to see:
-- AWS service interactions
-- Document processing status
-- Any errors or warnings
-
-#### Troubleshooting
-
-**Common Issues:**
-- **Port 8080 already in use**: Change the port in `application.properties` with `server.port=8081`
-- **AWS credentials not found**: Run `aws configure` to set up your credentials
-- **AWS services unavailable**: Ensure your IAM role has proper permissions and AWS resources exist
-
-**Quick Build Commands Reference:**
-```bash
-# Full clean build and test
-mvn clean install
-
-# Skip tests during build (faster)
-mvn clean package -DskipTests
-
-# Run tests only
-mvn test
-
-# Run specific test class
-mvn test -Dtest=DocumentControllerTest
-```
-
-## Configuration
-
-Application properties can be set in `src/main/resources/application.properties`.
-
-## Testing
-
-Run all tests with:
-```sh
-  mvn test
-```
-
-## AWS Integration
-
-### Prerequisites
-Ensure you have the following AWS resources provisioned:
-- S3 bucket for document storage
-- DynamoDB table for metadata
-- SQS queue for message processing
-- Proper IAM permissions for your application
-
-### Configuration
-Update `src/main/resources/application.properties` with your AWS settings:
-
-```properties
-aws.region=eu-north-1
-aws.s3.bucket-name=docohpp-documents-behu-20250827-001
-aws.dynamodb.table-name=Doc_Ohpp
-aws.sqs.queue-name=docoh-processing-queue
-```
-
-### Verification
-To verify AWS integration is working correctly, run the verification script:
-
-**Windows:**
-```cmd
-verify-aws-integration.bat
-```
-
-**Linux/Mac:**
-```bash
-./verify-aws-integration.sh
-```
-
-This will:
-1. Upload a test document
-2. Check if the file appears in S3
-3. Verify metadata is stored in DynamoDB
-4. Confirm SQS message was sent
-
-### Services Integration
-- **S3Service**: Handles file upload/download operations
-- **DynamoDBService**: Manages document metadata persistence  
-- **SQSService**: Sends and receives processing messages
-- **DocumentProcessingService**: Orchestrates the complete document workflow
-
-### CodeBuild Configuration
-
-#### Project Details
-- **Project Name**: `DocOhpp-Build`
-- **Environment**: Amazon Linux 2 (aws/codebuild/amazonlinux2-x86_64-standard:5.0)
-- **Runtime**: Java 21 (Amazon Corretto 21)
-- **Compute Type**: BUILD_GENERAL1_MEDIUM
-- **Service Role**: `DocOhpp-CodeBuild-ServiceRole`
-
-#### Build Configuration
-The CodeBuild project is configured to:
-- Use the `buildspec.yml` file in the repository root
-- Run Maven tests (`mvn test`) to ensure code quality
-- Package the application (`mvn package`)
-- Create a `deployment/` directory containing:
-  - Application JAR file
-  - `appspec.yml` for CodeDeploy
-  - `scripts/` directory with deployment scripts
-
-#### CloudWatch Logs
-- **Log Group**: `/aws/codebuild/DocOhpp-Build`
-- **Status**: Enabled for debugging and monitoring
-- **Access**: Available in AWS CloudWatch Console
-
-#### Artifacts Configuration
-- **Type**: CODEPIPELINE integration
-- **Output**: `deployment/` directory with timestamped artifacts
-- **Contents**: 
-  - `Doc_Ohpp-*.jar` (Spring Boot application)
-  - `appspec.yml` (CodeDeploy specification)
-  - `scripts/` (Installation and deployment scripts)
-
-#### Build Process Verification
-The buildspec.yml ensures the following verification steps:
-1. **Environment Setup**: Java 21 Corretto installation and Maven configuration
-2. **Test Execution**: `mvn test` runs all unit and integration tests
-3. **Build Compilation**: `mvn clean compile` verifies code compiles successfully
-4. **Packaging**: `mvn package` creates the deployable JAR file
-5. **Artifact Creation**: Copies JAR, appspec.yml, and scripts to deployment directory
-
-#### Usage
-- **For CodePipeline**: The project integrates seamlessly with AWS CodePipeline
-- **Manual Builds**: Can be triggered manually through AWS Console or CLI
-- **Monitoring**: All build logs are available in CloudWatch for troubleshooting
-
-```bash
-# Start a manual build (if needed for testing)
-aws codebuild start-build --project-name DocOhpp-Build --region eu-north-1
-```
-
-### CodeDeploy Configuration
-
-#### Application Details
-- **Application Name**: `DocOhpp-Application`
-- **Application ID**: `41c4e2d6-9763-4daa-9317-da286e72778c`
-- **Compute Platform**: Server (EC2/On-premises)
-- **Deployment Strategy**: In-place deployment
-- **Deployment Configuration**: `CodeDeployDefault.AllAtOnce`
-
-#### Deployment Group
-- **Deployment Group Name**: `DocOhpp-DeploymentGroup`
-- **Deployment Group ID**: `071aad0d-db0a-4ba3-b942-5225a77033d6`
-- **Service Role**: `DocOhpp-CodeDeploy-ServiceRole`
-- **Target Selection**: EC2 instances tagged with `Application=DocOhpp`
-
-#### EC2 Instance Configuration
-The deployment targets EC2 instances with the following specifications:
-
-**Instance Requirements:**
-- **AMI**: Amazon Linux 2 (latest)
-- **Instance Type**: t3.medium (recommended for adequate resources)
-- **IAM Instance Profile**: `DocOhpp-EC2-InstanceProfile`
-- **Security Group**: Allows inbound access on ports 22 (SSH) and 8080 (application)
-- **Tags**: `Application=DocOhpp`, `Environment=production`
-
-**Security Group Rules:**
-- Port 22: SSH access for management
-- Port 8080: Application access for users/load balancer
-- All outbound traffic allowed for AWS service communication
-
-#### Deployment Target Directory
-The application deploys to `/opt/docohpp/` with the following structure:
-```
-/opt/docohpp/
-├── Doc_Ohpp-*.jar          # Spring Boot application
-├── appspec.yml              # CodeDeploy specification
-└── scripts/                 # Deployment lifecycle scripts
-    ├── install-dependencies.sh
-    ├── start-application.sh
-    ├── stop-application.sh
-    └── change-permissions.sh
-```
-
-#### Application Logs
-Application logs are written to `/var/log/docohpp/`:
-```
-/var/log/docohpp/
-├── application.log          # Main application logs
-├── startup.log             # Application startup logs
-└── error.log               # Error logs
-```
-
-#### Required Software Installation
-Each EC2 instance must have the following components installed:
-
-**Core Requirements:**
-- Java 21 (Amazon Corretto 21)
-- CodeDeploy agent (for deployment automation)
-- CloudWatch agent (for log collection and monitoring)
-- X-Ray daemon (for distributed tracing)
-
-**Installation Script:**
-Use the provided `ec2-setup.sh` script to configure new instances:
-```bash
-# Download and run the setup script on EC2 instance
-curl -O https://github.com/Benhuh111/doc_ohprocessing/raw/main/ec2-setup.sh
+# Make it executable
 chmod +x ec2-setup.sh
+
+# Run the setup script
 ./ec2-setup.sh
 ```
 
-#### Deployment Process Verification
-After each deployment, run the verification script to ensure everything is working:
+**What the setup script installs:**
+- ✅ Java 21 (Amazon Corretto)
+- ✅ CodeDeploy Agent (configured and running)
+- ✅ CloudWatch Agent (for monitoring)
+- ✅ X-Ray Daemon (for distributed tracing)
+- ✅ Application directories (`/opt/docohpp`, `/var/log/docohpp`)
+- ✅ System service configurations
 
-**Verification Steps:**
-1. **Directory Structure**: Verify `/opt/docohpp` contains JAR, appspec.yml, and scripts
-2. **Process Status**: Confirm the Java application process is running
-3. **Port Accessibility**: Check that port 8080 is listening
-4. **Log Files**: Verify logs are being written to `/var/log/docohpp`
-5. **Service Health**: Test application endpoints for responsiveness
-6. **AWS Services**: Confirm X-Ray daemon and CloudWatch agent are running
+### Step 3: Verify Installation
 
-**Run Verification:**
+**Download and run the verification script:**
 ```bash
-# Download and run verification script on EC2 instance
-curl -O https://github.com/Benhuh111/doc_ohprocessing/raw/main/verify-deployment.sh
+# Download the verification script
+curl -O https://raw.githubusercontent.com/Benhuh111/doc_ohprocessing/main/verify-deployment.sh
+
+# Make it executable
 chmod +x verify-deployment.sh
+
+# Run verification
 ./verify-deployment.sh
 ```
 
-#### Deployment Commands
-```bash
-# Create a deployment manually (for testing)
-aws deploy create-deployment \
-  --application-name DocOhpp-Application \
-  --deployment-group-name DocOhpp-DeploymentGroup \
-  --s3-location bucket=your-artifacts-bucket,key=DocOhpp-artifacts.zip,bundleType=zip \
-  --region eu-north-1
+**Expected verification results:**
+- ✅ CodeDeploy agent running
+- ✅ X-Ray daemon active
+- ✅ Java 21 installed
+- ✅ Application directories created
+- ✅ Proper permissions set
 
-# Check deployment status
-aws deploy get-deployment --deployment-id <deployment-id> --region eu-north-1
+## CodeBuild Configuration
 
-# List deployments
-aws deploy list-deployments \
-  --application-name DocOhpp-Application \
-  --deployment-group-name DocOhpp-DeploymentGroup \
-  --region eu-north-1
+### Project Settings
+- **Project Name**: `doc-ohpp-build`
+- **Environment**: 
+  - Managed image: Amazon Linux 2
+  - Runtime: Java 21 (Amazon Corretto)
+- **Buildspec**: Uses `buildspec.yml` from repository
+- **Artifacts**: Outputs to `deployment/` directory containing:
+  - JAR file
+  - `appspec.yml`
+  - Deployment scripts
+
+### Build Verification
+- ✅ Maven tests pass
+- ✅ JAR file created successfully
+- ✅ Deployment artifacts generated
+- ✅ CloudWatch logs available for debugging
+
+## CodeDeploy Configuration
+
+### Application Settings
+- **Application Name**: `DocOhpp`
+- **Compute Platform**: EC2/On-premises
+- **Deployment Configuration**: `CodeDeployDefault.HalfAtATime` (In-place deployment)
+
+### Deployment Group Settings
+- **Deployment Group Name**: `DocOhpp-Production`
+- **Service Role**: `arn:aws:iam::{YOUR-ACCOUNT-ID}:role/codedeploy-service-role`
+- **Target Type**: Amazon EC2 instances
+- **Tag Filters**:
+  ```
+  Key: Application    Value: DocOhpp
+  Key: Environment    Value: production
+  ```
+
+### Deployment Strategy
+- **Type**: In-place deployment
+- **Configuration**: `CodeDeployDefault.HalfAtATime`
+- **Behavior**: Deploys to half of the instances at a time, ensuring high availability during deployments
+
+### Deployment Process
+1. Application files deployed to `/opt/docohpp/`
+2. Scripts executed from `scripts/` directory:
+   - `stop-application.sh` - Stops existing application
+   - `install-dependencies.sh` - Installs/updates dependencies
+   - `start-application.sh` - Starts the application
+   - `validate-service.sh` - Validates deployment success
+
+### Post-Deployment Verification
+After deployment, the application will be available at:
+- Health endpoint: `http://your-ec2-ip:8080/api/documents/health`
+- Application logs: `/var/log/docohpp/application.log`
+- Process status: Check with `ps aux | grep doc.*ohpp`
+
+### Verification Steps Completed
+✅ **EC2 Instance Setup**: 
+- Java 21 (Amazon Corretto) installed
+- CodeDeploy agent running and configured
+- X-Ray daemon installed and running as systemd service
+- CloudWatch agent installed
+- Application directories created: `/opt/docohpp` and `/var/log/docohpp`
+
+✅ **CodeDeploy Infrastructure**:
+- Application `DocOhpp` created
+- Service role `codedeploy-service-role` configured with proper permissions
+- Deployment group `DocOhpp-Production` targeting EC2 instances with required tags
+
+✅ **Deployment Package Ready**:
+- JAR file: `Doc_Ohpp-0.0.1-SNAPSHOT.jar`
+- Configuration: `appspec.yml` 
+- Deployment scripts: All scripts in `scripts/` directory
+
+## Troubleshooting
+
+### Common Issues
+1. **CodeDeploy Agent Not Running**:
+   ```bash
+   sudo service codedeploy-agent start
+   sudo chkconfig codedeploy-agent on
+   ```
+
+2. **Application Not Starting**:
+   - Check logs: `tail -f /var/log/docohpp/application.log`
+   - Verify Java: `java -version`
+   - Check permissions: `ls -la /opt/docohpp/`
+
+3. **Port 8080 Not Accessible**:
+   - Check security group rules
+   - Verify application is listening: `netstat -tlnp | grep :8080`
+
+### Log Locations
+- Application logs: `/var/log/docohpp/application.log`
+- CodeDeploy logs: `/var/log/aws/codedeploy-agent/`
+- X-Ray daemon logs: `sudo journalctl -u xray -f`
+
+## Development
+
+### Tech Stack
+- **Backend**: Spring Boot 3.x, Java 21
+- **AWS Services**: S3, DynamoDB, SQS, X-Ray, CloudWatch
+- **Build Tool**: Maven
+- **Deployment**: AWS CodeDeploy
+- **CI/CD**: AWS CodeBuild + CodePipeline
+
+### Project Structure
+```
+src/
+├── main/java/com/example/Doc_Ohpp/
+│   ├── config/          # Configuration classes
+│   ├── controller/      # REST controllers
+│   ├── model/          # Data models
+│   └── service/        # Business logic
+└── test/               # Unit and integration tests
 ```
 
-#### Monitoring and Troubleshooting
-- **CloudWatch Logs**: Application logs are collected and stored in CloudWatch
-- **X-Ray Tracing**: Distributed tracing data is sent to AWS X-Ray
-- **CodeDeploy Console**: Deployment status and logs available in AWS Console
-- **Instance Logs**: Local logs available in `/var/log/docohpp/` and `/var/log/aws/codedeploy-agent/`
+## Security Considerations
 
-## IAM Roles & Policies
+- All AWS credentials managed through IAM roles
+- No hardcoded secrets in application code
+- S3 bucket policies restrict access
+- Security groups limit network access
+- X-Ray tracing for request monitoring
 
-### Overview
-The Doc_Ohpp application implements least-privilege IAM roles and policies for secure AWS service access. All roles follow the principle of least privilege, granting only the minimum permissions required for each service to function.
+## Contributing
 
-### EC2 Instance Role: `DocOhpp-EC2-InstanceRole`
-**Purpose**: Allows EC2 instances running the Doc_Ohpp application to access AWS services.
+1. Fork the repository
+2. Create a feature branch
+3. Run tests: `mvn test`
+4. Build: `mvn clean package`
+5. Submit a pull request
 
-**Attached Policies**:
-- `DocOhpp-S3-Policy`: S3 bucket access for document storage
-- `DocOhpp-DynamoDB-Policy`: DynamoDB table operations for metadata
-- `DocOhpp-SQS-Policy`: SQS queue messaging operations
-- `DocOhpp-XRay-Policy`: X-Ray tracing capabilities
-- `DocOhpp-CloudWatch-Policy`: CloudWatch Logs for application logging
+## License
 
-**Instance Profile**: `DocOhpp-EC2-InstanceProfile`
-
-#### Specific Permissions:
-```
-S3 Permissions:
-- s3:PutObject, s3:GetObject, s3:DeleteObject on docohpp-documents-behu-20250827-001/*
-- s3:ListBucket on docohpp-documents-behu-20250827-001
-
-DynamoDB Permissions:
-- dynamodb:PutItem, GetItem, UpdateItem, DeleteItem, Scan on Doc_Ohpp table
-
-SQS Permissions:
-- sqs:SendMessage, GetQueueAttributes, ReceiveMessage, DeleteMessage on docoh-processing-queue
-
-X-Ray Permissions:
-- xray:PutTraceSegments, xray:PutTelemetryRecords (global)
-
-CloudWatch Permissions:
-- logs:CreateLogGroup, CreateLogStream, PutLogEvents on /aws/ec2/docohpp* and /application/docohpp*
-```
-
-### CodeBuild Service Role: `DocOhpp-CodeBuild-ServiceRole`
-**Purpose**: Allows CodeBuild to build the Doc_Ohpp application from source code.
-
-**Attached Policies**:
-- `DocOhpp-CodeBuild-Policy`: Custom policy for build operations
-
-#### Specific Permissions:
-```
-CloudWatch Logs:
-- logs:CreateLogGroup, CreateLogStream, PutLogEvents on /aws/codebuild/docohpp*
-
-S3 Artifacts:
-- s3:GetBucketAcl, GetBucketLocation, GetObject, GetObjectVersion, PutObject
-- Access to CodePipeline and CodeBuild artifact buckets
-
-Source Code Access:
-- codecommit:GitPull for source repository access
-- ssm:GetParameters for build parameters
-```
-
-### CodeDeploy Service Role: `DocOhpp-CodeDeploy-ServiceRole`
-**Purpose**: Allows CodeDeploy to deploy the application to EC2 instances.
-
-**Attached Policies**:
-- `DocOhpp-CodeDeploy-Policy`: Custom policy for deployment operations
-- `AWSCodeDeployRole`: AWS managed policy for EC2 deployments
-
-#### Specific Permissions:
-```
-EC2 Access:
-- ec2:DescribeInstances, DescribeInstanceStatus
-- tag:GetResources for tagged instance discovery
-
-Auto Scaling:
-- autoscaling:CompleteLifecycleAction, DeleteLifecycleHook, DescribeLifecycleHooks
-- autoscaling:DescribeAutoScalingGroups, PutLifecycleHook, RecordLifecycleActionHeartbeat
-
-Role Management:
-- iam:PassRole for DocOhpp-* roles
-```
-
-### Security Best Practices Implemented
-1. **Least Privilege**: Each role has only the minimum permissions required
-2. **Resource-Specific ARNs**: Policies target specific resources rather than using wildcards
-3. **Service-Specific Roles**: Separate roles for different services (EC2, CodeBuild, CodeDeploy)
-4. **No Cross-Service Access**: Roles cannot access resources outside their intended scope
-5. **Regional Restrictions**: Policies are scoped to eu-north-1 region where applicable
-
-### IAM Verification
-To verify IAM permissions are working correctly, run the verification script:
-
-**Windows:**
-```cmd
-verify-iam-permissions.bat
-```
-
-This script uses AWS IAM Policy Simulator to validate that:
-1. EC2 instances can access S3, DynamoDB, SQS, and X-Ray
-2. CodeBuild can access required logging and artifact resources
-3. CodeDeploy can manage EC2 deployments
-
-### Usage Instructions
-1. **For EC2 Deployment**: Attach the `DocOhpp-EC2-InstanceProfile` to your EC2 instances
-2. **For CodeBuild**: Use `DocOhpp-CodeBuild-ServiceRole` as the service role in build projects
-3. **For CodeDeploy**: Use `DocOhpp-CodeDeploy-ServiceRole` as the service role in deployment configurations
+This project is licensed under the MIT License.
