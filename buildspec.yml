@@ -20,49 +20,47 @@ phases:
       - echo "Pre-build phase started"
       - pwd
       - echo "Checking workspace structure:"
-      - ls -la
+      - ls -la || true
       - echo "Checking src directory structure:"
       - find src -type f -name "*.java" | head -20 || echo "No Java files found"
       - echo "Verifying main application class:"
       - ls -la src/main/java/com/example/Doc_Ohpp/ || echo "Directory not found"
-      - echo "Content check:"
-      - find . -name "*.java" -type f | head -10
+      - echo "Content check (first 10 java files):"
+      - find . -name "*.java" -type f | head -10 || true
       - echo "Resolving Maven dependencies"
       - mvn dependency:resolve -q
 
   build:
     commands:
       - echo "Build phase started"
-      - echo "Current directory structure before build:"
-      - ls -la
-      - echo "Maven clean and compile with detailed output"
+      - ls -la || true
+      - echo "Maven clean compile with detailed output"
       - mvn clean compile -e -X
-      - echo "Checking compiled classes after compile:"
-      - find target -name "*.class" 2>/dev/null | head -10 || echo "No compiled classes found"
-      - echo "Maven package with detailed output"
-      - mvn package -DskipTests -e -X
-      - echo "Build completed - checking target directory:"
+      - echo "Checking compiled classes after compile:"; find target -name "*.class" 2>/dev/null | head -10 || echo "No compiled classes found"
+      - echo "Maven package (skip tests)"; mvn package -DskipTests -e -X
+      - echo "Build completed - target directory:"
       - ls -la target/ || echo "Target directory not found"
 
   post_build:
     commands:
       - echo "Post-build phase started"
-      - echo "Normalizing line endings (CRLF -> LF) for shell scripts"
-      - if [ -d "scripts" ]; then find scripts -type f -name "*.sh" -exec sed -i 's/\r$//' {} +; fi
-      - echo "Ensuring shell scripts are executable"
-      - if [ -d "scripts" ]; then chmod +x scripts/*.sh || true; fi
-      - echo "Mirroring scripts into target/scripts so artifact pattern captures them"
-      - mkdir -p target/scripts
-      - if [ -d "scripts" ]; then cp scripts/*.sh target/scripts/; fi
-      - echo "Copying appspec.yml into target so it is included if artifact whitelist only covers target/**"
+      - echo "Normalize line endings (CRLF->LF) & ensure executability for scripts in workspace"
+      - if [ -d "scripts" ]; then find scripts -type f -name "*.sh" -exec sed -i 's/\r$//' {} +; chmod +x scripts/*.sh || true; fi
+      - echo "Prepare target packaging root"
+      - mkdir -p target
+      - echo "Copy appspec.yml into target root"
       - cp appspec.yml target/ || echo "appspec.yml missing"
-      - echo "Verifying target/scripts contents:"; ls -la target/scripts || echo "No target/scripts"
-      - echo "(Legacy) Creating deployment directory (not relied upon if artifact pattern ignores it)"
-      - mkdir -p deployment
-      - cp appspec.yml deployment/ 2>/dev/null || true
-      - if [ -d scripts ]; then cp -r scripts deployment/; fi
-      - find target -maxdepth 2 -type f -name "*.sh" -printf '%P\n' 2>/dev/null || true
-      - echo "Final target directory listing:"; ls -la target/
+      - echo "Copy full scripts directory into target/scripts"
+      - rm -rf target/scripts || true; mkdir -p target/scripts
+      - if [ -d scripts ]; then cp -r scripts/* target/scripts/; fi
+      - echo "Also copy scripts flat into target root (redundancy)"
+      - if [ -d scripts ]; then cp scripts/*.sh target/ 2>/dev/null || true; fi
+      - echo "List target root after script copy:"; ls -la target/ || true
+      - echo "List target/scripts:"; ls -la target/scripts || true
+      - echo "Create diagnostic manifest"
+      - (echo "PACKAGED FILES:"; find target -maxdepth 2 -type f -printf '%P\n' 2>/dev/null) > target/SCRIPTS_PRESENT.txt || true
+      - cat target/SCRIPTS_PRESENT.txt || true
+      - echo "Final target tree (depth 3):"; find target -maxdepth 3 -type f | head -100 || true
 
 artifacts:
   files:
