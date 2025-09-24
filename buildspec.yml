@@ -47,34 +47,25 @@ phases:
   post_build:
     commands:
       - echo "Post-build phase started"
-      - echo "Creating deployment directory"
+      - echo "Normalizing line endings (CRLF -> LF) for shell scripts"
+      - if [ -d "scripts" ]; then find scripts -type f -name "*.sh" -exec sed -i 's/\r$//' {} +; fi
+      - echo "Ensuring shell scripts are executable"
+      - if [ -d "scripts" ]; then chmod +x scripts/*.sh || true; fi
+      - echo "Mirroring scripts into target/scripts so artifact pattern captures them"
+      - mkdir -p target/scripts
+      - if [ -d "scripts" ]; then cp scripts/*.sh target/scripts/; fi
+      - echo "Copying appspec.yml into target so it is included if artifact whitelist only covers target/**"
+      - cp appspec.yml target/ || echo "appspec.yml missing"
+      - echo "Verifying target/scripts contents:"; ls -la target/scripts || echo "No target/scripts"
+      - echo "(Legacy) Creating deployment directory (not relied upon if artifact pattern ignores it)"
       - mkdir -p deployment
-      - echo "Current directory contents:"
-      - ls -la
-      - echo "Target directory contents:"
-      - ls -la target/ || echo "No target directory"
-      - echo "Copying JAR files"
-      - find target -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" -exec cp {} deployment/ \; || echo "No JAR files found"
-      - echo "Copying appspec.yml"
-      - cp appspec.yml deployment/ || echo "appspec.yml not found"
-      - echo "Copying scripts directory"
-      - if [ -d "scripts" ]; then 
-          cp -r scripts deployment/; 
-          echo "Scripts copied successfully";
-        else 
-          echo "Scripts directory not found"; 
-        fi
-      - echo "Final deployment directory structure:"
-      - ls -la deployment/ || echo "Deployment directory not created"
-      - if [ -d "deployment/scripts" ]; then
-          echo "Scripts in deployment directory:";
-          ls -la deployment/scripts/;
-        else
-          echo "No scripts directory in deployment";
-        fi
+      - cp appspec.yml deployment/ 2>/dev/null || true
+      - if [ -d scripts ]; then cp -r scripts deployment/; fi
+      - find target -maxdepth 2 -type f -name "*.sh" -printf '%P\n' 2>/dev/null || true
+      - echo "Final target directory listing:"; ls -la target/
 
 artifacts:
   files:
     - '**/*'
-  base-directory: deployment
-  name: DocOhpp-$(date +%Y-%m-%d-%H-%M-%S)
+  base-directory: target
+  name: DocOhpp-artifact-$(date +%Y-%m-%d-%H-%M-%S)

@@ -1,2 +1,10 @@
-/mvnw text eol=lf
-*.cmd text eol=crlf
+# Enforce LF for shell scripts and YAML to avoid CRLF issues on Linux
+*.sh text eol=lf
+*.bash text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.properties text eol=lf
+
+# Default to auto-normalize text files
+* text=auto
+

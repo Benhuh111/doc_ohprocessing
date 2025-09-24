@@ -308,7 +308,7 @@ aws s3 cp source.zip s3://doc-ohpp-documents-bucket/source/source.zip
 ### Pipeline Screenshots
 *Note: Screenshots of successful pipeline runs can be found in the AWS CodePipeline console showing:*
 - ✅ Source stage completion
-- ✅ Build stage with successful Maven compilation  
+- ✅ Build stage with successful Maven compilation
 - ✅ Deploy stage with successful EC2 deployment
 - ✅ Complete pipeline execution with all stages green
 
