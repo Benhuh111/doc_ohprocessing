@@ -49,11 +49,12 @@ phases:
       - cp appspec.yml deployment/
       - echo "Copying scripts directory if it exists"
       - if [ -d "scripts" ]; then cp -r scripts deployment/; else echo "No scripts directory found, skipping"; fi
-      - echo "Deployment directory contents"
+      - echo "Listing deployment directory contents:"
       - ls -la deployment/
+      - ls -la deployment/scripts/ || echo "Scripts directory not found in deployment"
 
 artifacts:
   files:
     - '**/*'
   base-directory: deployment
-  name: DocOhpp-Build-Artifact
+  name: DocOhpp-$(date +%Y-%m-%d-%H-%M-%S)
