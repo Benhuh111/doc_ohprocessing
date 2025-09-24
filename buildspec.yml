@@ -10,41 +10,37 @@ phases:
     runtime-versions:
       java: corretto21
     commands:
-      - echo "=== Environment Information ==="
+      - echo "Environment Information"
       - java -version
       - mvn -version
-      - echo "Available memory:"
-      - "free -h || echo 'Memory info not available'"
-      - echo "MAVEN_OPTS: $MAVEN_OPTS"
+      - echo "MAVEN_OPTS is $MAVEN_OPTS"
 
   pre_build:
     commands:
-      - echo "=== Pre-build phase started ==="
+      - echo "Pre-build phase started"
       - pwd
       - ls -la
-      - echo "Checking Maven dependencies..."
-      - "mvn dependency:resolve -q || echo 'Dependency resolution failed'"
+      - echo "Resolving Maven dependencies"
+      - mvn dependency:resolve -q
 
   build:
     commands:
-      - echo "=== Build phase started ==="
-      - echo "Starting Maven clean compile..."
+      - echo "Build phase started"
+      - echo "Maven clean compile"
       - mvn clean compile -q
-      - echo "Compile completed successfully"
-      - echo "Starting Maven package (skipping tests)..."
+      - echo "Maven package"
       - mvn package -DskipTests -q
-      - echo "Package completed successfully"
-      - echo "Checking target directory:"
+      - echo "Build completed"
       - ls -la target/
 
   post_build:
     commands:
-      - echo "=== Post-build phase started ==="
+      - echo "Post-build phase started"
       - mkdir -p deployment
-      - "cp target/*.jar deployment/ 2>/dev/null || echo 'No JAR files to copy'"
-      - "cp appspec.yml deployment/ 2>/dev/null || echo 'No appspec.yml to copy'"
-      - "cp -r scripts deployment/ 2>/dev/null || echo 'No scripts directory to copy'"
-      - echo "Deployment directory contents:"
+      - cp target/*.jar deployment/
+      - cp appspec.yml deployment/
+      - cp -r scripts deployment/
+      - echo "Deployment directory contents"
       - ls -la deployment/
 
 artifacts:
