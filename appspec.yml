@@ -1,4 +1,4 @@
-version: 0.0
+﻿version: 0.0
 os: linux
 
 files:
@@ -44,6 +44,6 @@ hooks:
       runas: ec2-user
 
   ValidateService:
-    - location: scripts/valdiate-service.sh
+    - location: scripts/validate-service.sh
       timeout: 60
       runas: ec2-user
