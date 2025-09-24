@@ -17,57 +17,31 @@ phases:
 
   pre_build:
     commands:
-      - echo "Pre-build phase started on $(date)"
-      - echo "Logging in to Amazon ECR (if needed)..."
-      - echo "Current directory: $(pwd)"
-      - echo "Listing files:"
-      - ls -la
-      - echo "Java version:"
-      - java -version
-      - echo "Maven version:"
-      - mvn -version
-      - echo "AWS CLI version:"
-      - aws --version
+      - echo "Logging in to Amazon ECR..."
+      - echo "Build started on `date`"
+      - echo "Installing dependencies..."
+      - yum update -y
+      - yum install -y maven
 
   build:
     commands:
-      - echo "Build phase started on $(date)"
-      - echo "Running Maven clean compile..."
-      - mvn clean compile -q
-      - echo "Running tests..."
-      - mvn test
-      - echo "Packaging application..."
-      - mvn package -DskipTests
-      - echo "Build completed on $(date)"
-      - echo "Listing target directory:"
-      - ls -la target/
+      - echo "Build started on `date`"
+      - echo "Compiling the Java application..."
+      - mvn clean compile test package
+      - echo "Build completed on `date`"
 
   post_build:
     commands:
-      - echo "Post-build phase started on $(date)"
-      - echo "Build artifacts created:"
-      - ls -la target/*.jar
-      - echo "Creating deployment directory structure..."
+      - echo "Build completed on `date`"
+      - echo "Creating deployment directory..."
       - mkdir -p deployment
       - cp target/*.jar deployment/
-      - cp appspec.yml deployment/ 2>/dev/null || echo "appspec.yml not found, will be created"
-      - cp -r scripts deployment/ 2>/dev/null || echo "scripts directory not found, will be created"
-      - echo "Deployment directory contents:"
-      - ls -la deployment/
-      - echo "Post-build phase completed on $(date)"
+      - cp appspec.yml deployment/
+      - cp -r scripts deployment/
+      - echo "Deployment package created successfully"
 
 artifacts:
   files:
     - '**/*'
   base-directory: deployment
-  name: DocOhpp-$(date +%Y-%m-%d-%H-%M-%S)
-
-reports:
-  junit-reports:
-    files:
-      - 'target/surefire-reports/*.xml'
-    file-format: 'JUNITXML'
-
-cache:
-  paths:
-    - '/root/.m2/**/*'
+  name: DocOhpp-$(date +%Y-%m-%d)
