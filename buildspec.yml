@@ -37,9 +37,12 @@ phases:
     commands:
       - echo "Post-build phase started"
       - mkdir -p deployment
+      - echo "Copying JAR files"
       - cp target/*.jar deployment/
+      - echo "Copying appspec.yml"
       - cp appspec.yml deployment/
-      - cp -r scripts deployment/
+      - echo "Copying scripts directory if it exists"
+      - if [ -d "scripts" ]; then cp -r scripts deployment/; else echo "No scripts directory found, skipping"; fi
       - echo "Deployment directory contents"
       - ls -la deployment/
 
