@@ -223,6 +223,170 @@ This will:
 - **SQSService**: Sends and receives processing messages
 - **DocumentProcessingService**: Orchestrates the complete document workflow
 
+### CodeBuild Configuration
+
+#### Project Details
+- **Project Name**: `DocOhpp-Build`
+- **Environment**: Amazon Linux 2 (aws/codebuild/amazonlinux2-x86_64-standard:5.0)
+- **Runtime**: Java 21 (Amazon Corretto 21)
+- **Compute Type**: BUILD_GENERAL1_MEDIUM
+- **Service Role**: `DocOhpp-CodeBuild-ServiceRole`
+
+#### Build Configuration
+The CodeBuild project is configured to:
+- Use the `buildspec.yml` file in the repository root
+- Run Maven tests (`mvn test`) to ensure code quality
+- Package the application (`mvn package`)
+- Create a `deployment/` directory containing:
+  - Application JAR file
+  - `appspec.yml` for CodeDeploy
+  - `scripts/` directory with deployment scripts
+
+#### CloudWatch Logs
+- **Log Group**: `/aws/codebuild/DocOhpp-Build`
+- **Status**: Enabled for debugging and monitoring
+- **Access**: Available in AWS CloudWatch Console
+
+#### Artifacts Configuration
+- **Type**: CODEPIPELINE integration
+- **Output**: `deployment/` directory with timestamped artifacts
+- **Contents**: 
+  - `Doc_Ohpp-*.jar` (Spring Boot application)
+  - `appspec.yml` (CodeDeploy specification)
+  - `scripts/` (Installation and deployment scripts)
+
+#### Build Process Verification
+The buildspec.yml ensures the following verification steps:
+1. **Environment Setup**: Java 21 Corretto installation and Maven configuration
+2. **Test Execution**: `mvn test` runs all unit and integration tests
+3. **Build Compilation**: `mvn clean compile` verifies code compiles successfully
+4. **Packaging**: `mvn package` creates the deployable JAR file
+5. **Artifact Creation**: Copies JAR, appspec.yml, and scripts to deployment directory
+
+#### Usage
+- **For CodePipeline**: The project integrates seamlessly with AWS CodePipeline
+- **Manual Builds**: Can be triggered manually through AWS Console or CLI
+- **Monitoring**: All build logs are available in CloudWatch for troubleshooting
+
+```bash
+# Start a manual build (if needed for testing)
+aws codebuild start-build --project-name DocOhpp-Build --region eu-north-1
+```
+
+### CodeDeploy Configuration
+
+#### Application Details
+- **Application Name**: `DocOhpp-Application`
+- **Application ID**: `41c4e2d6-9763-4daa-9317-da286e72778c`
+- **Compute Platform**: Server (EC2/On-premises)
+- **Deployment Strategy**: In-place deployment
+- **Deployment Configuration**: `CodeDeployDefault.AllAtOnce`
+
+#### Deployment Group
+- **Deployment Group Name**: `DocOhpp-DeploymentGroup`
+- **Deployment Group ID**: `071aad0d-db0a-4ba3-b942-5225a77033d6`
+- **Service Role**: `DocOhpp-CodeDeploy-ServiceRole`
+- **Target Selection**: EC2 instances tagged with `Application=DocOhpp`
+
+#### EC2 Instance Configuration
+The deployment targets EC2 instances with the following specifications:
+
+**Instance Requirements:**
+- **AMI**: Amazon Linux 2 (latest)
+- **Instance Type**: t3.medium (recommended for adequate resources)
+- **IAM Instance Profile**: `DocOhpp-EC2-InstanceProfile`
+- **Security Group**: Allows inbound access on ports 22 (SSH) and 8080 (application)
+- **Tags**: `Application=DocOhpp`, `Environment=production`
+
+**Security Group Rules:**
+- Port 22: SSH access for management
+- Port 8080: Application access for users/load balancer
+- All outbound traffic allowed for AWS service communication
+
+#### Deployment Target Directory
+The application deploys to `/opt/docohpp/` with the following structure:
+```
+/opt/docohpp/
+├── Doc_Ohpp-*.jar          # Spring Boot application
+├── appspec.yml              # CodeDeploy specification
+└── scripts/                 # Deployment lifecycle scripts
+    ├── install-dependencies.sh
+    ├── start-application.sh
+    ├── stop-application.sh
+    └── change-permissions.sh
+```
+
+#### Application Logs
+Application logs are written to `/var/log/docohpp/`:
+```
+/var/log/docohpp/
+├── application.log          # Main application logs
+├── startup.log             # Application startup logs
+└── error.log               # Error logs
+```
+
+#### Required Software Installation
+Each EC2 instance must have the following components installed:
+
+**Core Requirements:**
+- Java 21 (Amazon Corretto 21)
+- CodeDeploy agent (for deployment automation)
+- CloudWatch agent (for log collection and monitoring)
+- X-Ray daemon (for distributed tracing)
+
+**Installation Script:**
+Use the provided `ec2-setup.sh` script to configure new instances:
+```bash
+# Download and run the setup script on EC2 instance
+curl -O https://github.com/Benhuh111/doc_ohprocessing/raw/main/ec2-setup.sh
+chmod +x ec2-setup.sh
+./ec2-setup.sh
+```
+
+#### Deployment Process Verification
+After each deployment, run the verification script to ensure everything is working:
+
+**Verification Steps:**
+1. **Directory Structure**: Verify `/opt/docohpp` contains JAR, appspec.yml, and scripts
+2. **Process Status**: Confirm the Java application process is running
+3. **Port Accessibility**: Check that port 8080 is listening
+4. **Log Files**: Verify logs are being written to `/var/log/docohpp`
+5. **Service Health**: Test application endpoints for responsiveness
+6. **AWS Services**: Confirm X-Ray daemon and CloudWatch agent are running
+
+**Run Verification:**
+```bash
+# Download and run verification script on EC2 instance
+curl -O https://github.com/Benhuh111/doc_ohprocessing/raw/main/verify-deployment.sh
+chmod +x verify-deployment.sh
+./verify-deployment.sh
+```
+
+#### Deployment Commands
+```bash
+# Create a deployment manually (for testing)
+aws deploy create-deployment \
+  --application-name DocOhpp-Application \
+  --deployment-group-name DocOhpp-DeploymentGroup \
+  --s3-location bucket=your-artifacts-bucket,key=DocOhpp-artifacts.zip,bundleType=zip \
+  --region eu-north-1
+
+# Check deployment status
+aws deploy get-deployment --deployment-id <deployment-id> --region eu-north-1
+
+# List deployments
+aws deploy list-deployments \
+  --application-name DocOhpp-Application \
+  --deployment-group-name DocOhpp-DeploymentGroup \
+  --region eu-north-1
+```
+
+#### Monitoring and Troubleshooting
+- **CloudWatch Logs**: Application logs are collected and stored in CloudWatch
+- **X-Ray Tracing**: Distributed tracing data is sent to AWS X-Ray
+- **CodeDeploy Console**: Deployment status and logs available in AWS Console
+- **Instance Logs**: Local logs available in `/var/log/docohpp/` and `/var/log/aws/codedeploy-agent/`
+
 ## IAM Roles & Policies
 
 ### Overview
