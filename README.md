@@ -208,6 +208,110 @@ After deployment, the application will be available at:
 - Configuration: `appspec.yml` 
 - Deployment scripts: All scripts in `scripts/` directory
 
+## CodePipeline Configuration
+
+### Pipeline Overview
+**Pipeline Name**: `DocOhpp-Pipeline`
+
+**Pipeline Flow**: Source → Build → Deploy
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│             │    │             │    │             │    │             │
+│   S3 Source │───▶│  CodeBuild  │───▶│ CodeDeploy  │───▶│EC2 Instance │
+│   (GitHub)  │    │   (Maven)   │    │(Deployment) │    │   (App)     │
+│             │    │             │    │             │    │             │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+```
+
+### Pipeline Stages
+
+#### Stage 1: Source
+- **Action**: `SourceAction`
+- **Provider**: AWS S3
+- **Configuration**: 
+  - S3 Bucket: `doc-ohpp-documents-bucket`
+  - S3 Object Key: `source/source.zip`
+  - Poll for Changes: Disabled (manual trigger)
+- **Output Artifact**: `SourceOutput`
+
+#### Stage 2: Build  
+- **Action**: `BuildAction`
+- **Provider**: AWS CodeBuild
+- **Project**: `doc-ohpp-build`
+- **Configuration**:
+  - Environment: Amazon Linux 2, Java 21 (Corretto)
+  - Build Spec: `buildspec.yml`
+  - Compute: BUILD_GENERAL1_SMALL
+- **Input Artifact**: `SourceOutput`
+- **Output Artifact**: `BuildOutput`
+
+#### Stage 3: Deploy
+- **Action**: `DeployAction` 
+- **Provider**: AWS CodeDeploy
+- **Configuration**:
+  - Application: `DocOhpp`
+  - Deployment Group: `DocOhpp-Production`
+  - Target: EC2 instances with tags `Application=DocOhpp`, `Environment=production`
+- **Input Artifact**: `BuildOutput`
+
+### Artifact Flow
+1. **Source Artifact**: Complete source code from S3
+2. **Build Artifact**: Compiled JAR file + deployment scripts + appspec.yml
+3. **Deploy Artifact**: Deployed application on EC2 instance
+
+### Pipeline Execution
+- **Service Role**: `arn:aws:iam::{YOUR-ACCOUNT-ID}:role/codepipeline-service-role`
+- **Artifact Store**: S3 bucket `doc-ohpp-documents-bucket`
+- **Trigger Method**: Manual execution or S3 upload
+- **Region**: eu-north-1
+
+### Pipeline Verification
+✅ **Infrastructure Setup Complete**:
+- CodePipeline created with 3 stages
+- CodeBuild project configured for Java 21
+- CodeDeploy application and deployment group ready
+- S3 artifact store configured
+- IAM roles and permissions properly set
+
+✅ **Pipeline Execution Test**:
+- Source stage pulls from S3 successfully
+- Build stage compiles Java application using Maven
+- Deploy stage deploys to EC2 instances via CodeDeploy
+- Complete artifact flow working: Source → Build → Deploy
+
+### How to Trigger Pipeline
+
+#### Manual Trigger:
+```bash
+# Start pipeline execution
+aws codepipeline start-pipeline-execution --name DocOhpp-Pipeline
+
+# Check pipeline status
+aws codepipeline get-pipeline-state --name DocOhpp-Pipeline
+```
+
+#### Source Update Trigger:
+```bash
+# Create source package from your code
+Compress-Archive -Path pom.xml, buildspec.yml, appspec.yml, src, scripts -DestinationPath source.zip -Force
+
+# Upload to S3 to trigger pipeline
+aws s3 cp source.zip s3://doc-ohpp-documents-bucket/source/source.zip
+```
+
+### Pipeline Monitoring
+- **AWS Console**: Monitor pipeline execution in CodePipeline console
+- **CloudWatch Logs**: Build logs available in CodeBuild project logs
+- **CodeDeploy Console**: Deployment status and history
+- **EC2 Instance**: Application health via `/api/documents/health` endpoint
+
+### Pipeline Screenshots
+*Note: Screenshots of successful pipeline runs can be found in the AWS CodePipeline console showing:*
+- ✅ Source stage completion
+- ✅ Build stage with successful Maven compilation  
+- ✅ Deploy stage with successful EC2 deployment
+- ✅ Complete pipeline execution with all stages green
+
 ## Troubleshooting
 
 ### Common Issues
