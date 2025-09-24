@@ -1,3 +1,4 @@
+#!/bin/bash
 echo "Setting up file permissions..."
 
 # Set ownership

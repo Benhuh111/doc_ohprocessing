@@ -1,3 +1,4 @@
+#!/bin/bash
 echo "Starting Doc_Ohpp application..."
 
 # Set variables

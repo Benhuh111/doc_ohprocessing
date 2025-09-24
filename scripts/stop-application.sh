@@ -1,3 +1,4 @@
+#!/bin/bash
 echo "Stopping Doc_Ohpp application..."
 
 # Find and kill any running Java processes for our application

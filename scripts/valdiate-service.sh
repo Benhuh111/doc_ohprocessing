@@ -1,3 +1,4 @@
+#!/bin/bash
 echo "Validating Doc_Ohpp service..."
 
 # Configuration

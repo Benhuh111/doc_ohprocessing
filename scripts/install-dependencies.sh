@@ -1,3 +1,4 @@
+#!/bin/bash
 echo "Installing system dependencies..."
 
 # Update system packages
