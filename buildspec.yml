@@ -19,17 +19,23 @@ phases:
     commands:
       - echo "Pre-build phase started"
       - pwd
-      - ls -la
+      - echo "Listing all files in src directory:"
+      - find src -type f -name "*.java" | head -20
+      - echo "Checking for main application class:"
+      - ls -la src/main/java/com/example/Doc_Ohpp/ || echo "Directory not found"
+      - cat src/main/java/com/example/Doc_Ohpp/DocOhppApplication.java || echo "Main class file not found"
       - echo "Resolving Maven dependencies"
       - mvn dependency:resolve -q
 
   build:
     commands:
       - echo "Build phase started"
-      - echo "Maven clean compile"
-      - mvn clean compile -q
-      - echo "Maven package"
-      - mvn package -DskipTests -q
+      - echo "Maven clean compile with verbose output"
+      - mvn clean compile -e -X
+      - echo "Checking compiled classes:"
+      - find target -name "*.class" | head -10
+      - echo "Maven package with verbose output"
+      - mvn package -DskipTests -e -X
       - echo "Build completed"
       - ls -la target/
 
