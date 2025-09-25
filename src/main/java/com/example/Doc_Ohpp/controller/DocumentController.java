@@ -1,5 +1,7 @@
 package com.example.Doc_Ohpp.controller;
 
+import com.amazonaws.xray.AWSXRay;
+import com.amazonaws.xray.entities.Subsegment;
 import com.amazonaws.xray.spring.aop.XRayEnabled;
 import com.example.Doc_Ohpp.model.Document;
 import com.example.Doc_Ohpp.service.DocumentProcessingService;
@@ -12,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -195,12 +198,48 @@ public class DocumentController {
      */
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> healthCheck() {
-        Map<String, Object> health = new HashMap<>();
-        health.put("status", "UP");
-        health.put("service", "Doc_Ohpp Document Processing Service");
-        health.put("timestamp", System.currentTimeMillis());
+        logger.info("Health check request received");
 
-        return ResponseEntity.ok(health);
+        // Create custom X-Ray subsegment for health check
+        Subsegment healthSubsegment = AWSXRay.beginSubsegment("health-check");
+        try {
+            healthSubsegment.putAnnotation("operation", "health");
+            healthSubsegment.putAnnotation("endpoint", "/api/documents/health");
+
+            // Get processing statistics to verify all services are working
+            var stats = documentProcessingService.getProcessingStats();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "healthy");
+            response.put("timestamp", LocalDateTime.now());
+            response.put("service", "DocOh-Service");
+            response.put("statistics", Map.of(
+                "totalDocuments", stats.getTotalDocuments(),
+                "uploadedCount", stats.getUploadedCount(),
+                "processingCount", stats.getProcessingCount(),
+                "completedCount", stats.getCompletedCount(),
+                "failedCount", stats.getFailedCount(),
+                "queueMessageCount", stats.getQueueMessageCount()
+            ));
+
+            healthSubsegment.putMetadata("health", "response", response);
+            logger.info("Health check completed successfully");
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Health check failed: {}", e.getMessage(), e);
+            healthSubsegment.putAnnotation("error", "health_check_failed");
+            healthSubsegment.putMetadata("health", "error", e.getMessage());
+
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("status", "unhealthy");
+            errorResponse.put("timestamp", LocalDateTime.now());
+            errorResponse.put("error", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        } finally {
+            healthSubsegment.close();
+        }
     }
 
     /**

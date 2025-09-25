@@ -1,0 +1,81 @@
+{
+  "Comment": "Document Processing Workflow - A simple state machine demonstrating validation and processing steps",
+  "StartAt": "ValidateInput",
+  "States": {
+    "ValidateInput": {
+      "Type": "Pass",
+      "Comment": "Validate the input document metadata",
+      "Parameters": {
+        "documentId.$": "$.documentId",
+        "fileName.$": "$.fileName",
+        "contentType.$": "$.contentType",
+        "fileSize.$": "$.fileSize",
+        "validationTimestamp.$": "$$.State.EnteredTime",
+        "validationResult": "PASSED"
+      },
+      "ResultPath": "$.validation",
+      "Next": "CheckFileSize"
+    },
+    "CheckFileSize": {
+      "Type": "Choice",
+      "Comment": "Check if file size is within acceptable limits",
+      "Choices": [
+        {
+          "Variable": "$.fileSize",
+          "NumericGreaterThan": 10485760,
+          "Next": "FileTooLarge"
+        }
+      ],
+      "Default": "ProcessDocument"
+    },
+    "FileTooLarge": {
+      "Type": "Fail",
+      "Comment": "File size exceeds maximum limit",
+      "Cause": "File size exceeds 10MB limit",
+      "Error": "FileSizeExceeded"
+    },
+    "ProcessDocument": {
+      "Type": "Task",
+      "Comment": "Process the document (simulated with a Pass state)",
+      "Resource": "arn:aws:states:::pass",
+      "Parameters": {
+        "documentId.$": "$.documentId",
+        "fileName.$": "$.fileName",
+        "contentType.$": "$.contentType",
+        "fileSize.$": "$.fileSize",
+        "validation.$": "$.validation",
+        "processing": {
+          "status": "COMPLETED",
+          "processingTime": 2500,
+          "processedAt.$": "$$.State.EnteredTime",
+          "extractedText": "Sample extracted text content...",
+          "metadata": {
+            "pages": 1,
+            "words": 150,
+            "confidence": 0.95
+          }
+        }
+      },
+      "ResultPath": "$.result",
+      "Next": "NotifyCompletion"
+    },
+    "NotifyCompletion": {
+      "Type": "Pass",
+      "Comment": "Send completion notification",
+      "Parameters": {
+        "documentId.$": "$.documentId",
+        "fileName.$": "$.fileName",
+        "status": "WORKFLOW_COMPLETED",
+        "completedAt.$": "$$.State.EnteredTime",
+        "validation.$": "$.validation",
+        "processing.$": "$.result.processing",
+        "notification": {
+          "type": "SUCCESS",
+          "message": "Document processing workflow completed successfully"
+        }
+      },
+      "End": true
+    }
+  }
+}
+

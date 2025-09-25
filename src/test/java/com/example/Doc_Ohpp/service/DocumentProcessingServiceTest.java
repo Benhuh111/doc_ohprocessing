@@ -58,6 +58,9 @@ class DocumentProcessingServiceTest {
         savedDocument.setDocumentId("test-id");
         when(dynamoDBService.saveDocument(any(Document.class))).thenReturn(savedDocument);
 
+        // Mock getDocument calls for async processing
+        when(dynamoDBService.getDocument("test-id")).thenReturn(savedDocument);
+
         // When
         Document result = documentProcessingService.uploadDocument(multipartFile);
 

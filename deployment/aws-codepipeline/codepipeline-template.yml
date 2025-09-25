@@ -1,0 +1,442 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CodePipeline for Doc_Ohpp: GitHub → CodeBuild → CodeDeploy'
+
+Parameters:
+  GitHubOwner:
+    Type: String
+    Description: GitHub repository owner/organization name
+    Default: YourGitHubUsername
+
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+    Default: Doc_Ohpp
+
+  GitHubBranch:
+    Type: String
+    Description: GitHub branch to monitor
+    Default: main
+
+  GitHubToken:
+    Type: String
+    Description: GitHub personal access token
+    NoEcho: true
+
+  EC2KeyPair:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 Key Pair for instances
+
+  S3BucketName:
+    Type: String
+    Description: S3 bucket for pipeline artifacts
+    Default: doc-ohpp-pipeline-artifacts
+
+Resources:
+  # S3 Bucket for Pipeline Artifacts
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # IAM Role for CodePipeline
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodePipelinePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource: !Sub "${ArtifactsBucket}/*"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !Ref ArtifactsBucket
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuild
+                Resource: !GetAtt CodeBuildProject.Arn
+              - Effect: Allow
+                Action:
+                  - codedeploy:CreateDeployment
+                  - codedeploy:GetApplication
+                  - codedeploy:GetApplicationRevision
+                  - codedeploy:GetDeployment
+                  - codedeploy:GetDeploymentConfig
+                  - codedeploy:RegisterApplicationRevision
+                Resource: "*"
+
+  # IAM Role for CodeBuild
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodeBuildPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource: !Sub "${ArtifactsBucket}/*"
+
+  # CodeBuild Project
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: DocOhpp-Build
+      Description: Build project for Doc_Ohpp Java application
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        PrivilegedMode: false
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          
+          env:
+            variables:
+              MAVEN_OPTS: "-Xmx1024m -Xms512m"
+              JAVA_TOOL_OPTIONS: "-Xmx1024m -Xms512m"
+          
+          phases:
+            install:
+              runtime-versions:
+                java: corretto21
+              commands:
+                - echo "Environment Information"
+                - java -version
+                - mvn -version
+                - echo "MAVEN_OPTS is $MAVEN_OPTS"
+          
+            pre_build:
+              commands:
+                - echo "Pre-build phase started"
+                - pwd
+                - echo "Listing top-level entries (max depth 2)"
+                - find . -maxdepth 2 -mindepth 1 -printf '%P\n' | sort
+                - echo "Checking src directory structure:"
+                - find . -path '*/src/main/java' -maxdepth 5 -type f -name "*.java" -print | head -10 || echo "(No java files preview)"
+                - echo "Verifying main application class (search)"
+                - grep -R "DocOhppApplication" -n . || true
+                - echo "Resolving Maven dependencies"
+                - mvn dependency:resolve -q
+          
+            build:
+              commands:
+                - echo "Build phase started"
+                - mvn clean compile -DskipTests
+                - echo "Classes present sample:"
+                - find target -type f -name "*.class" | head -10 || true
+                - mvn package -DskipTests
+                - echo "Post-package target listing (level 1)"
+                - find target -maxdepth 1 -printf '%P\n' | sort
+          
+            post_build:
+              commands:
+                - echo "Post-build phase started"
+                - echo "Detecting ALL shell scripts anywhere in workspace (excluding target)"
+                - SH_FILES=$(find . -type f -name "*.sh" -not -path './target/*')
+                - echo "Discovered shell scripts:" && echo "$SH_FILES" | tr ' ' '\n' | sed '/^$/d' || true
+                - COUNT=$(echo "$SH_FILES" | tr ' ' '\n' | sed '/^$/d' | wc -l || echo 0)
+                - |
+                  if [ "$COUNT" -eq 0 ]; then
+                    echo "ERROR: No shell scripts (.sh) found in workspace — failing build" >&2
+                    exit 1
+                  fi
+                - |
+                  echo "Normalize line endings and make executable"
+                  echo "$SH_FILES" | tr ' ' '\n' | sed '/^$/d' | while read f; do
+                    sed -i 's/\r$//' "$f" || true
+                    chmod +x "$f" || true
+                  done
+                - echo "Ensuring scripts directory exists" && mkdir -p scripts
+                - echo "(Diagnostic) Listing scripts directory" && ls -la scripts || true
+                - |
+                  echo "Creating diagnostic manifest"
+                  (
+                    echo "JARs:"
+                    find target -maxdepth 1 -name '*.jar' -printf '%P\n'
+                    echo "Scripts:"
+                    echo "$SH_FILES" | tr ' ' '\n' | sed '/^$/d' | xargs -I{} basename {}
+                  ) > SCRIPTS_PRESENT.txt
+                - echo "Manifest contents:" && cat SCRIPTS_PRESENT.txt || true
+                - cp SCRIPTS_PRESENT.txt target/ || true
+          
+          artifacts:
+            files:
+              - appspec.yml
+              - scripts/*.sh
+              - target/*.jar
+              - SCRIPTS_PRESENT.txt
+            name: DocOhpp-artifact-$(date +%Y-%m-%d-%H-%M-%S)
+
+  # IAM Role for CodeDeploy
+  CodeDeployServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codedeploy.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole
+
+  # IAM Role for EC2 Instances
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: S3AccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub "${ArtifactsBucket}/*"
+
+  # EC2 Instance Profile
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2InstanceRole
+
+  # Security Group for EC2 Instances
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Doc_Ohpp application servers
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  # EC2 Launch Template
+  EC2LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: DocOhpp-LaunchTemplate
+      LaunchTemplateData:
+        ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2 AMI (update for your region)
+        InstanceType: t3.micro
+        KeyName: !Ref EC2KeyPair
+        IamInstanceProfile:
+          Arn: !GetAtt EC2InstanceProfile.Arn
+        SecurityGroupIds:
+          - !Ref EC2SecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            yum update -y
+            yum install -y ruby wget java-21-amazon-corretto-devel
+            
+            # Install CodeDeploy agent
+            cd /home/ec2-user
+            wget https://aws-codedeploy-${AWS::Region}.s3.${AWS::Region}.amazonaws.com/latest/install
+            chmod +x ./install
+            ./install auto
+            
+            # Create application directory
+            mkdir -p /opt/docohpp
+            chown ec2-user:ec2-user /opt/docohpp
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: DocOhpp-Server
+              - Key: Environment
+                Value: Production
+
+  # Auto Scaling Group
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: DocOhpp-ASG
+      LaunchTemplate:
+        LaunchTemplateId: !Ref EC2LaunchTemplate
+        Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 3
+      DesiredCapacity: 1
+      AvailabilityZones:
+        Fn::GetAZs: !Ref AWS::Region
+      Tags:
+        - Key: Name
+          Value: DocOhpp-ASG-Instance
+          PropagateAtLaunch: true
+
+  # CodeDeploy Application
+  CodeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: DocOhpp-Application
+      ComputePlatform: Server
+
+  # CodeDeploy Deployment Group
+  CodeDeployDeploymentGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    Properties:
+      ApplicationName: !Ref CodeDeployApplication
+      DeploymentGroupName: DocOhpp-DeploymentGroup
+      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
+      DeploymentConfigName: CodeDeployDefault.AllAtOne
+      AutoScalingGroups:
+        - !Ref AutoScalingGroup
+      Ec2TagFilters:
+        - Type: KEY_AND_VALUE
+          Key: Name
+          Value: DocOhpp-ASG-Instance
+
+  # CodePipeline
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: DocOhpp-Pipeline
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactsBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Provider: GitHub
+                Version: '1'
+              Configuration:
+                Owner: !Ref GitHubOwner
+                Repo: !Ref GitHubRepo
+                Branch: !Ref GitHubBranch
+                OAuthToken: !Ref GitHubToken
+                PollForSourceChanges: false
+              OutputArtifacts:
+                - Name: SourceOutput
+
+        - Name: Build
+          Actions:
+            - Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: BuildOutput
+
+        - Name: Deploy
+          Actions:
+            - Name: DeployAction
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CodeDeploy
+                Version: '1'
+              Configuration:
+                ApplicationName: !Ref CodeDeployApplication
+                DeploymentGroupName: !Ref CodeDeployDeploymentGroup
+              InputArtifacts:
+                - Name: BuildOutput
+
+  # GitHub Webhook
+  GitHubWebhook:
+    Type: AWS::CodePipeline::Webhook
+    Properties:
+      Name: DocOhpp-GitHubWebhook
+      TargetPipeline: !Ref CodePipeline
+      TargetAction: SourceAction
+      TargetPipelineVersion: !GetAtt CodePipeline.Version
+      RegisterWithThirdParty: true
+      Authentication: GITHUB_HMAC
+      AuthenticationConfiguration:
+        SecretToken: !Ref GitHubToken
+      Filters:
+        - JsonPath: $.ref
+          MatchEquals: refs/heads/{Branch}
+
+Outputs:
+  PipelineUrl:
+    Description: URL of the CodePipeline
+    Value: !Sub "https://console.aws.amazon.com/codesuite/codepipeline/pipelines/${CodePipeline}/view"
+
+  S3BucketName:
+    Description: Name of the S3 bucket for artifacts
+    Value: !Ref ArtifactsBucket
+
+  CodeBuildProjectName:
+    Description: Name of the CodeBuild project
+    Value: !Ref CodeBuildProject
+
+  CodeDeployApplicationName:
+    Description: Name of the CodeDeploy application
+    Value: !Ref CodeDeployApplication

@@ -1,0 +1,56 @@
+{
+  "Comment": "Sample test inputs for Step Functions workflows",
+  "testCases": [
+    {
+      "name": "PDF Document",
+      "description": "Test with a PDF document",
+      "input": {
+        "documentId": "test-pdf-001",
+        "fileName": "business-report.pdf",
+        "contentType": "application/pdf",
+        "fileSize": 2048576
+      }
+    },
+    {
+      "name": "Image Document",
+      "description": "Test OCR processing with an image",
+      "input": {
+        "documentId": "test-img-001",
+        "fileName": "scanned-document.jpg",
+        "contentType": "image/jpeg",
+        "fileSize": 1024000
+      }
+    },
+    {
+      "name": "Text Document",
+      "description": "Test with a plain text file",
+      "input": {
+        "documentId": "test-txt-001",
+        "fileName": "notes.txt",
+        "contentType": "text/plain",
+        "fileSize": 51200
+      }
+    },
+    {
+      "name": "Large File Test",
+      "description": "Test file size validation (should fail)",
+      "input": {
+        "documentId": "test-large-001",
+        "fileName": "large-document.pdf",
+        "contentType": "application/pdf",
+        "fileSize": 15728640
+      }
+    },
+    {
+      "name": "Word Document",
+      "description": "Test with a Word document",
+      "input": {
+        "documentId": "test-docx-001",
+        "fileName": "proposal.docx",
+        "contentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "fileSize": 512000
+      }
+    }
+  ]
+}
+

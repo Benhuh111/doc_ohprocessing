@@ -1,5 +1,8 @@
 package com.example.Doc_Ohpp.service;
 
+import com.amazonaws.xray.AWSXRay;
+import com.amazonaws.xray.entities.Segment;
+import com.amazonaws.xray.entities.Subsegment;
 import com.amazonaws.xray.spring.aop.XRayEnabled;
 import com.example.Doc_Ohpp.model.Document;
 import org.slf4j.Logger;
@@ -42,16 +45,33 @@ public class DocumentProcessingService {
     public Document uploadDocument(MultipartFile file) {
         logger.info("Starting document upload process: fileName={}, size={}", file.getOriginalFilename(), file.getSize());
 
+        // Create custom X-Ray subsegment for document upload
+        Subsegment uploadSubsegment = AWSXRay.beginSubsegment("document-upload");
         try {
+            // Add annotations for filtering in X-Ray console
+            uploadSubsegment.putAnnotation("operation", "upload");
+            uploadSubsegment.putAnnotation("fileName", file.getOriginalFilename());
+            uploadSubsegment.putAnnotation("fileSize", file.getSize());
+            uploadSubsegment.putMetadata("upload", "originalFileName", file.getOriginalFilename());
+            uploadSubsegment.putMetadata("upload", "contentType", file.getContentType());
+
             // Validate file
             validateFile(file);
 
-            // Upload to S3
-            String s3Key = s3Service.uploadDocument(
-                    file.getOriginalFilename(),
-                    file.getContentType(),
-                    file.getBytes()
-            );
+            // Upload to S3 with custom subsegment
+            Subsegment s3Subsegment = AWSXRay.beginSubsegment("s3-upload");
+            String s3Key;
+            try {
+                s3Subsegment.putAnnotation("service", "s3");
+                s3Subsegment.putAnnotation("bucket", bucketName);
+                s3Key = s3Service.uploadDocument(
+                        file.getOriginalFilename(),
+                        file.getContentType(),
+                        file.getBytes()
+                );
+            } finally {
+                s3Subsegment.close();
+            }
 
             // Create document metadata
             Document document = new Document(
@@ -81,6 +101,8 @@ public class DocumentProcessingService {
         } catch (Exception e) {
             logger.error("Failed to upload document: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to upload document", e);
+        } finally {
+            uploadSubsegment.close();
         }
     }
 
@@ -165,6 +187,8 @@ public class DocumentProcessingService {
     private void processDocument(String documentId) {
         logger.info("Starting document processing: documentId={}", documentId);
 
+        // Create custom X-Ray subsegment for document processing
+        Subsegment processingSubsegment = AWSXRay.beginSubsegment("document-processing");
         try {
             // Update status to PROCESSING
             dynamoDBService.updateDocumentStatus(documentId, Document.ProcessingStatus.PROCESSING, null);
@@ -195,6 +219,8 @@ public class DocumentProcessingService {
             // Best effort fetch; may be null if the document was removed
             Document failedDocument = dynamoDBService.getDocument(documentId);
             sqsService.sendDocumentProcessingFailedMessage(failedDocument, e.getMessage());
+        } finally {
+            processingSubsegment.close();
         }
     }
 
@@ -348,3 +374,4 @@ public class DocumentProcessingService {
         public int getQueueMessageCount() { return queueMessageCount; }
     }
 }
+

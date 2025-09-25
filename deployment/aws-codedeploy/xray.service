@@ -1,0 +1,14 @@
+[Unit]
+Description=AWS X-Ray Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=xray
+Group=xray
+ExecStart=/usr/bin/xray -f /var/log/xray/xray.log -c /etc/amazon/xray/cfg.yaml
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

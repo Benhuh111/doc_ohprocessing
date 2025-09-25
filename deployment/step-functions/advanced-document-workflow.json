@@ -1,0 +1,150 @@
+{
+  "Comment": "Advanced Document Processing Workflow with Error Handling and Parallel Processing",
+  "StartAt": "ValidateAndPreprocess",
+  "States": {
+    "ValidateAndPreprocess": {
+      "Type": "Parallel",
+      "Comment": "Validate input and preprocess document metadata in parallel",
+      "Branches": [
+        {
+          "StartAt": "ValidateInput",
+          "States": {
+            "ValidateInput": {
+              "Type": "Pass",
+              "Parameters": {
+                "documentId.$": "$.documentId",
+                "fileName.$": "$.fileName",
+                "validation": {
+                  "status": "VALID",
+                  "timestamp.$": "$$.State.EnteredTime",
+                  "fileNameValid": true,
+                  "documentIdValid": true
+                }
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "PreprocessMetadata",
+          "States": {
+            "PreprocessMetadata": {
+              "Type": "Pass",
+              "Parameters": {
+                "metadata": {
+                  "extractedAt.$": "$$.State.EnteredTime",
+                  "contentType.$": "$.contentType",
+                  "fileSize.$": "$.fileSize",
+                  "priority": "NORMAL",
+                  "estimatedProcessingTime": 5000
+                }
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": "$.preprocessingResults",
+      "Next": "ProcessingDecision"
+    },
+    "ProcessingDecision": {
+      "Type": "Choice",
+      "Comment": "Decide processing path based on file type",
+      "Choices": [
+        {
+          "Variable": "$.contentType",
+          "StringMatches": "image/*",
+          "Next": "ImageProcessing"
+        },
+        {
+          "Variable": "$.contentType",
+          "StringEquals": "application/pdf",
+          "Next": "PDFProcessing"
+        },
+        {
+          "Variable": "$.contentType",
+          "StringMatches": "text/*",
+          "Next": "TextProcessing"
+        }
+      ],
+      "Default": "GenericProcessing"
+    },
+    "ImageProcessing": {
+      "Type": "Pass",
+      "Comment": "OCR processing for images",
+      "Parameters": {
+        "processingType": "OCR",
+        "result": {
+          "status": "COMPLETED",
+          "confidence": 0.92,
+          "extractedText": "Sample OCR extracted text from image",
+          "processingTime": 3500
+        }
+      },
+      "ResultPath": "$.processingResult",
+      "Next": "FinalProcessing"
+    },
+    "PDFProcessing": {
+      "Type": "Pass",
+      "Comment": "PDF text extraction",
+      "Parameters": {
+        "processingType": "PDF_EXTRACTION",
+        "result": {
+          "status": "COMPLETED",
+          "pages": 5,
+          "extractedText": "Sample PDF extracted content",
+          "processingTime": 2000
+        }
+      },
+      "ResultPath": "$.processingResult",
+      "Next": "FinalProcessing"
+    },
+    "TextProcessing": {
+      "Type": "Pass",
+      "Comment": "Text analysis and processing",
+      "Parameters": {
+        "processingType": "TEXT_ANALYSIS",
+        "result": {
+          "status": "COMPLETED",
+          "wordCount": 250,
+          "sentiment": "NEUTRAL",
+          "extractedText": "Sample text content analysis",
+          "processingTime": 1000
+        }
+      },
+      "ResultPath": "$.processingResult",
+      "Next": "FinalProcessing"
+    },
+    "GenericProcessing": {
+      "Type": "Pass",
+      "Comment": "Generic document processing",
+      "Parameters": {
+        "processingType": "GENERIC",
+        "result": {
+          "status": "COMPLETED",
+          "extractedText": "Generic processing completed",
+          "processingTime": 1500
+        }
+      },
+      "ResultPath": "$.processingResult",
+      "Next": "FinalProcessing"
+    },
+    "FinalProcessing": {
+      "Type": "Pass",
+      "Comment": "Finalize processing and prepare output",
+      "Parameters": {
+        "documentId.$": "$.documentId",
+        "fileName.$": "$.fileName",
+        "contentType.$": "$.contentType",
+        "fileSize.$": "$.fileSize",
+        "validation.$": "$.preprocessingResults[0].validation",
+        "metadata.$": "$.preprocessingResults[1].metadata",
+        "processing.$": "$.processingResult",
+        "workflowCompletedAt.$": "$$.State.EnteredTime",
+        "finalStatus": "SUCCESS"
+      },
+      "End": true
+    }
+  }
+}
+
