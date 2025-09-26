@@ -27,6 +27,7 @@ phases:
       - cp deployment/scripts/*.sh scripts/
       - ls -l scripts/
       - chmod +x scripts/*.sh || true
+      - echo "Scripts are present" > SCRIPTS_PRESENT.txt
       - echo "Build complete"
 artifacts:
   files:
