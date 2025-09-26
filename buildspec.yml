@@ -27,7 +27,7 @@ phases:
 artifacts:
   files:
     - appspec.yml
-    - scripts/*.sh
+    - deployment/scripts/*.sh
     - target/*.jar
     - SCRIPTS_PRESENT.txt
   discard-paths: no
