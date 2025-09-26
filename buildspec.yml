@@ -24,7 +24,8 @@ phases:
       - echo "Post-build phase"
       - ls -l deployment/scripts/
       - mkdir -p scripts
-      - cp deployment/scripts/*.sh scripts/
+      - cp deployment/scripts/*.sh scripts/ || true
+      - touch scripts/README.md
       - ls -l scripts/
       - chmod +x scripts/*.sh || true
       - echo "Scripts are present" > SCRIPTS_PRESENT.txt
@@ -32,6 +33,7 @@ phases:
 artifacts:
   files:
     - scripts/*.sh
+    - scripts/README.md
     - target/*.jar
     - SCRIPTS_PRESENT.txt
   discard-paths: no
