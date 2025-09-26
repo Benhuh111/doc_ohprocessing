@@ -67,11 +67,11 @@ Resources:
                   - s3:GetObjectVersion
                   - s3:PutObject
                   - s3:PutObjectAcl
-                Resource: !Sub "${ArtifactsBucket}/*"
+                Resource: !Sub "arn:aws:s3:::${ArtifactsBucket}/*"
               - Effect: Allow
                 Action:
                   - s3:ListBucket
-                Resource: !Ref ArtifactsBucket
+                Resource: !Sub "arn:aws:s3:::${ArtifactsBucket}"
               - Effect: Allow
                 Action:
                   - codebuild:BatchGetBuilds
@@ -114,13 +114,13 @@ Resources:
                   - s3:GetObject
                   - s3:GetObjectVersion
                   - s3:PutObject
-                Resource: !Sub "${ArtifactsBucket}/*"
+                Resource: !Sub "arn:aws:s3:::${ArtifactsBucket}/*"
 
   # CodeBuild Project
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: DocOhpp-Build
+      Name: !Sub "DocOhpp-Build-${AWS::StackName}"
       Description: Build project for Doc_Ohpp Java application
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Artifacts:
@@ -248,7 +248,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:GetObject
-                Resource: !Sub "${ArtifactsBucket}/*"
+                Resource: !Sub "arn:aws:s3:::${ArtifactsBucket}/*"
 
   # EC2 Instance Profile
   EC2InstanceProfile:
@@ -282,13 +282,13 @@ Resources:
     Properties:
       LaunchTemplateName: DocOhpp-LaunchTemplate
       LaunchTemplateData:
-        ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2 AMI (update for your region)
+        ImageId: ami-0009f0c4964e4e0f9  # Amazon Linux 2 AMI for eu-north-1
         InstanceType: t3.micro
         KeyName: !Ref EC2KeyPair
         IamInstanceProfile:
           Arn: !GetAtt EC2InstanceProfile.Arn
         SecurityGroupIds:
-          - !Ref EC2SecurityGroup
+          - !GetAtt EC2SecurityGroup.GroupId
         UserData:
           Fn::Base64: !Sub |
             #!/bin/bash
@@ -334,7 +334,7 @@ Resources:
   CodeDeployApplication:
     Type: AWS::CodeDeploy::Application
     Properties:
-      ApplicationName: DocOhpp-Application
+      ApplicationName: !Sub "DocOhpp-Application-${AWS::StackName}"
       ComputePlatform: Server
 
   # CodeDeploy Deployment Group
@@ -344,7 +344,7 @@ Resources:
       ApplicationName: !Ref CodeDeployApplication
       DeploymentGroupName: DocOhpp-DeploymentGroup
       ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
-      DeploymentConfigName: CodeDeployDefault.AllAtOne
+      DeploymentConfigName: CodeDeployDefault.OneAtATime
       AutoScalingGroups:
         - !Ref AutoScalingGroup
       Ec2TagFilters:
@@ -356,7 +356,7 @@ Resources:
   CodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      Name: DocOhpp-Pipeline
+      Name: !Sub "DocOhpp-Pipeline-${AWS::StackName}"
       RoleArn: !GetAtt CodePipelineServiceRole.Arn
       ArtifactStore:
         Type: S3

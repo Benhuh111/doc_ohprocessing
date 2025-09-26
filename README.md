@@ -179,6 +179,43 @@ The project includes complete AWS CodePipeline integration:
 - **Deploy**: AWS CodeDeploy to EC2
 - **Monitor**: CloudWatch and X-Ray integration
 
+---
+
+## 🚀 AWS CodePipeline: CI/CD Automation
+
+This project uses AWS CodePipeline to automate build and deployment from GitHub to AWS EC2 via CodeBuild and CodeDeploy.
+
+### Pipeline Stages
+1. **Source**: Pulls code from GitHub (repo/branch specified in parameters)
+2. **Build**: Runs CodeBuild to compile, package, and prepare deployment artifacts
+3. **Deploy**: Uses CodeDeploy to deploy the build artifact to EC2 instances (managed by Auto Scaling Group)
+
+### Setup Instructions
+1. **Prepare GitHub Token**: Create a personal access token with `repo` and `admin:repo_hook` permissions.
+2. **Deploy CloudFormation Stack**:
+   - Use `deployment/aws-codepipeline/codepipeline-template.yml` in AWS CloudFormation.
+   - Provide parameters: `GitHubOwner`, `GitHubRepo`, `GitHubBranch`, `GitHubToken`, `EC2KeyPair`, `S3BucketName`.
+3. **Webhook**: The pipeline automatically registers a webhook in your GitHub repo for push events.
+
+### Verification Steps
+1. Commit and push changes to your GitHub branch.
+2. Go to the AWS CodePipeline console (see Outputs for URL).
+3. Watch the pipeline run through Source, Build, and Deploy stages.
+4. Each stage should show success (green checkmark).
+
+### Example Pipeline Run
+Add screenshots here:
+- ![Pipeline stages](docs/pipeline-success-screenshot.png)
+- ![Stage details](docs/pipeline-stage-details.png)
+
+### Outputs
+- **Pipeline URL**: Provided in CloudFormation stack outputs
+- **S3 Bucket**: Stores pipeline artifacts
+- **CodeBuild Project**: Handles build
+- **CodeDeploy Application**: Manages deployment
+
+---
+
 ## 📚 Documentation
 
 - [`PROJECT_STRUCTURE.md`](PROJECT_STRUCTURE.md) - Detailed project organization
