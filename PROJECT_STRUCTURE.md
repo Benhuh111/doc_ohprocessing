@@ -1,4 +1,4 @@
-# Doc_Ohpp Project Structure 1
+# Doc_Ohpp Project Structure
 
 This document outlines the organization of the Doc_Ohpp project files.
 
