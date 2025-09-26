@@ -1,0 +1,27 @@
+version: 0.0
+os: linux
+files:
+  - source: target/Doc_Ohpp-0.0.1-SNAPSHOT.jar
+    destination: /opt/docohpp/
+  - source: scripts/
+    destination: /opt/docohpp/scripts/
+  - source: SCRIPTS_PRESENT.txt
+    destination: /opt/docohpp/
+hooks:
+  BeforeInstall:
+    - location: scripts/install-dependencies.sh
+      timeout: 300
+      runas: root
+  AfterInstall:
+    - location: scripts/start-app.sh
+      timeout: 300
+      runas: ec2-user
+  ApplicationStop:
+    - location: scripts/stop-application.sh
+      timeout: 300
+      runas: ec2-user
+  ValidateService:
+    - location: scripts/validate-service.sh
+      timeout: 300
+      runas: ec2-user
+
