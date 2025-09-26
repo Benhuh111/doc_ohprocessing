@@ -1,1 +1,34 @@
+version: 0.2
+env:
+  variables:
+    MAVEN_OPTS: "-Xmx1024m -Xms512m"
+    JAVA_TOOL_OPTIONS: "-Xmx1024m -Xms512m"
+phases:
+  install:
+    runtime-versions:
+      java: corretto21
+    commands:
+      - echo "Installing dependencies"
+      - java -version
+      - mvn -version
+  pre_build:
+    commands:
+      - echo "Pre-build phase"
+      - mvn dependency:resolve -q
+  build:
+    commands:
+      - echo "Build phase"
+      - mvn clean package -DskipTests
+  post_build:
+    commands:
+      - echo "Post-build phase"
+      - chmod +x scripts/*.sh || true
+      - echo "Build complete"
+artifacts:
+  files:
+    - appspec.yml
+    - scripts/*.sh
+    - target/*.jar
+    - SCRIPTS_PRESENT.txt
+  discard-paths: no
 
