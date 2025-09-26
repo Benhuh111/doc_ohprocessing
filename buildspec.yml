@@ -26,12 +26,10 @@ phases:
       - cp deployment/scripts/*.sh scripts/
       - chmod +x scripts/*.sh || true
       - echo "Build complete"
-  artifacts:
-    files:
-      - appspec.yml
-      - scripts/*.sh
-      - target/*.jar
-      - SCRIPTS_PRESENT.txt
-    discard-paths: no
-
-
+artifacts:
+  files:
+    - appspec.yml
+    - scripts/*.sh
+    - target/*.jar
+    - SCRIPTS_PRESENT.txt
+  discard-paths: no
