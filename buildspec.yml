@@ -22,8 +22,10 @@ phases:
   post_build:
     commands:
       - echo "Post-build phase"
+      - ls -l deployment/scripts/
       - mkdir -p scripts
       - cp deployment/scripts/*.sh scripts/
+      - ls -l scripts/
       - chmod +x scripts/*.sh || true
       - echo "Build complete"
 artifacts:
