@@ -281,6 +281,7 @@ public class DocumentProcessingService {
         int processingCount = 0;
         int completedCount = 0;
         int failedCount = 0;
+        long totalSize = 0;
 
         for (Document doc : allDocuments) {
             switch (doc.getStatus()) {
@@ -297,6 +298,7 @@ public class DocumentProcessingService {
                     failedCount++;
                     break;
             }
+            totalSize += doc.getFileSize();
         }
 
         return new DocumentProcessingStats(
@@ -305,7 +307,8 @@ public class DocumentProcessingService {
                 processingCount,
                 completedCount,
                 failedCount,
-                sqsService.getQueueMessageCount()
+                sqsService.getQueueMessageCount(),
+                totalSize
         );
     }
 
@@ -354,15 +357,17 @@ public class DocumentProcessingService {
         private final int completedCount;
         private final int failedCount;
         private final int queueMessageCount;
+        private final long totalSize;
 
         public DocumentProcessingStats(int totalDocuments, int uploadedCount, int processingCount,
-                                       int completedCount, int failedCount, int queueMessageCount) {
+                                       int completedCount, int failedCount, int queueMessageCount, long totalSize) {
             this.totalDocuments = totalDocuments;
             this.uploadedCount = uploadedCount;
             this.processingCount = processingCount;
             this.completedCount = completedCount;
             this.failedCount = failedCount;
             this.queueMessageCount = queueMessageCount;
+            this.totalSize = totalSize;
         }
 
         // Getters
@@ -372,6 +377,11 @@ public class DocumentProcessingService {
         public int getCompletedCount() { return completedCount; }
         public int getFailedCount() { return failedCount; }
         public int getQueueMessageCount() { return queueMessageCount; }
+        public long getTotalSize() { return totalSize; }
+
+        // Frontend-friendly getters
+        public int getProcessedDocuments() { return completedCount; }
+        public int getPendingDocuments() { return uploadedCount + processingCount; }
     }
 }
 

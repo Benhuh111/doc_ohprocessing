@@ -274,29 +274,60 @@
     async function loadStats() {
         try {
             const response = await fetch(`${API_BASE}/stats`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
             const stats = await response.json();
+
+            // Provide fallback values for undefined data
+            const totalDocuments = stats.totalDocuments || 0;
+            const processedDocuments = stats.processedDocuments || stats.completedCount || 0;
+            const pendingDocuments = stats.pendingDocuments || (stats.uploadedCount || 0) + (stats.processingCount || 0);
+            const totalSize = stats.totalSize || 0;
 
             const statsGrid = document.getElementById('statsGrid');
             statsGrid.innerHTML = `
                 <div class="stat-card">
-                    <div class="stat-number">${stats.totalDocuments}</div>
+                    <div class="stat-number">${totalDocuments}</div>
                     <div class="stat-label">Total Documents</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">${stats.processedDocuments}</div>
+                    <div class="stat-number">${processedDocuments}</div>
                     <div class="stat-label">Processed</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">${stats.pendingDocuments}</div>
+                    <div class="stat-number">${pendingDocuments}</div>
                     <div class="stat-label">Pending</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">${formatFileSize(stats.totalSize)}</div>
+                    <div class="stat-number">${formatFileSize(totalSize)}</div>
                     <div class="stat-label">Total Size</div>
                 </div>
             `;
         } catch (error) {
-            document.getElementById('statsGrid').innerHTML = `<p class="status error">Error loading stats: ${error.message}</p>`;
+            console.error('Error loading stats:', error);
+            const statsGrid = document.getElementById('statsGrid');
+            statsGrid.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">0</div>
+                    <div class="stat-label">Total Documents</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">0</div>
+                    <div class="stat-label">Processed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">0</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">0 Bytes</div>
+                    <div class="stat-label">Total Size</div>
+                </div>
+                <div class="status error">Error loading stats: ${error.message}</div>
+            `;
         }
     }
 
