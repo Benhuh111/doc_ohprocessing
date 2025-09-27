@@ -5,8 +5,6 @@ files:
     destination: /opt/docohpp/
   - source: scripts/
     destination: /opt/docohpp/scripts/
-  - source: SCRIPTS_PRESENT.txt
-    destination: /opt/docohpp/
 hooks:
   BeforeInstall:
     - location: scripts/stop-application.sh

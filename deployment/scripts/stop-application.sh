@@ -1,41 +1,59 @@
 #!/bin/bash
-
-# Stop application script for Doc_Ohpp Spring Boot application
-
-# Application directory
-APP_DIR="/opt/doc_ohpp"
-PID_FILE="$APP_DIR/application.pid"
-
-# Check if PID file exists
-if [ ! -f $PID_FILE ]; then
-    echo "PID file not found. Application may not be running."
-    exit 1
+   
+# stop-application.sh - Script to stop the Doc_Ohpp application
+   
+echo "Stopping Doc_Ohpp application..."
+   
+# Check if application is running
+PID_FILE=/opt/docohpp/app.pid
+   
+if [ -f "$PID_FILE" ]; then
+  PID=$(cat $PID_FILE)
+     
+  if ps -p $PID > /dev/null; then
+    echo "Stopping application process with PID: $PID"
+    kill $PID
+    sleep 5
+       
+    # Force kill if still running
+    if ps -p $PID > /dev/null; then
+      echo "Application still running, force killing process"
+      kill -9 $PID
+    fi
+       
+    rm $PID_FILE
+    echo "Application stopped successfully"
+  else
+    echo "No running process found with PID: $PID"
+    rm $PID_FILE
+  fi
+else
+  echo "PID file not found, application may not be running"
 fi
-
-# Read PID from file
-PID=$(cat $PID_FILE)
-
-# Check if process is running
-if ! ps -p $PID > /dev/null 2>&1; then
-    echo "Process with PID $PID is not running. Removing stale PID file."
-    rm -f $PID_FILE
-    exit 1
+   
+# Check for any Java processes that might be our application
+JAVA_PROCS=$(pgrep -f "java.*Doc_Ohpp.*jar" || echo "")
+   
+if [ -n "$JAVA_PROCS" ]; then
+  echo "Found additional Java processes that may be Doc_Ohpp: $JAVA_PROCS"
+  echo "Attempting to stop these processes"
+     
+  for pid in $JAVA_PROCS; do
+    echo "Stopping process $pid"
+    kill $pid
+  done
+     
+  sleep 2
+     
+  # Force kill if any still running
+  REMAINING_PROCS=$(pgrep -f "java.*Doc_Ohpp.*jar" || echo "")
+  if [ -n "$REMAINING_PROCS" ]; then
+    echo "Force killing remaining processes: $REMAINING_PROCS"
+    for pid in $REMAINING_PROCS; do
+      kill -9 $pid
+    done
+  fi
 fi
-
-# Stop the application
-echo "Stopping Doc_Ohpp application with PID $PID..."
-kill $PID
-
-# Wait for process to stop
-sleep 5
-
-# Check if process stopped gracefully
-if ps -p $PID > /dev/null 2>&1; then
-    echo "Process did not stop gracefully. Force killing..."
-    kill -9 $PID
-    sleep 2
-fi
-
-# Remove PID file
-rm -f $PID_FILE
-echo "Application stopped successfully."
+   
+echo "Application stop procedure completed"
+exit 0
