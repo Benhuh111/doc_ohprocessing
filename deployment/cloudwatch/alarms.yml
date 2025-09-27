@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudWatch alarms for Doc_Ohpp (5xx rate, latency, SQS queue depth)
+Resources:
+  Api5xxErrorRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: DocOhpp-API-5xx-ErrorRate
+      AlarmDescription: "Alarm when API 5xx error rate exceeds threshold"
+      Namespace: AWS/ApiGateway
+      MetricName: 5XXError
+      Dimensions:
+        - Name: ApiName
+          Value: docohpp-api
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions: []
+
+  ApiLatencyP95Alarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: DocOhpp-API-P95-Latency
+      AlarmDescription: "Alarm when API P95 latency > 2000ms"
+      Namespace: AWS/ApiGateway
+      MetricName: p95
+      Dimensions:
+        - Name: ApiName
+          Value: docohpp-api
+      Statistic: p95
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2000
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions: []
+
+  SqsQueueDepthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: DocOhpp-SQS-QueueDepth
+      AlarmDescription: "Alarm when SQS ApproximateNumberOfMessagesVisible exceeds threshold"
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: your-queue-name
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1000
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions: []
+
+Outputs:
+  Api5xxErrorRateAlarmName:
+    Value: !Ref Api5xxErrorRateAlarm
+    Export:
+      Name: DocOhpp-Api5xxErrorRateAlarm
+

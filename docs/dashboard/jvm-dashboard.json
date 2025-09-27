@@ -1,0 +1,56 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "CWAgent", "memory_used", "InstanceId", "i-0123456789abcdef0" ],
+          [ ".", "memory_available", ".", "." ]
+        ],
+        "period": 60,
+        "stat": "Average",
+        "region": "${AWS::Region}",
+        "title": "JVM Memory Usage (example)"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/EC2", "CPUUtilization", "InstanceId", "i-0123456789abcdef0", { "stat": "Average" } ],
+          [ "", "NetworkIn", "InstanceId", "i-0123456789abcdef0" ]
+        ],
+        "period": 60,
+        "stat": "Average",
+        "region": "${AWS::Region}",
+        "title": "EC2 CPU & Network"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 6,
+      "width": 24,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "DocOhpp", "DocumentsProcessed", "Service", "docohpp", { "stat": "Sum" } ],
+          [ "DocOhpp", "DocumentsFailed", "Service", "docohpp", { "stat": "Sum" } ]
+        ],
+        "period": 60,
+        "stat": "Sum",
+        "region": "${AWS::Region}",
+        "title": "Business KPIs: Documents Processed / Failed"
+      }
+    }
+  ]
+}
+
