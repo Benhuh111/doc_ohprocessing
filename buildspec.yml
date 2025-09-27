@@ -22,23 +22,22 @@ phases:
   post_build:
     commands:
       - echo "Post-build phase"
-      - echo "Listing source scripts directory:"
-      - ls -la deployment/scripts/
-      - mkdir -p scripts
-      - echo "Copying deployment scripts to scripts directory"
-      - cp deployment/scripts/*.sh scripts/ || echo "Warning: Script copy failed or no scripts found"
-      - echo "Verifying scripts directory contents:"
+      - echo "Verifying scripts directory at project root:"
       - ls -la scripts/
-      - echo "Making scripts executable"
-      - chmod +x scripts/*.sh || echo "Warning: chmod failed or no scripts found"
-      - echo "Creating appspec.yml if not exists at root"
-      - test -f appspec.yml || echo "ERROR: appspec.yml not found at project root!"
-      - echo "Build complete"
+      - echo "Making all scripts executable:"
+      - chmod +x scripts/*.sh
+      - echo "Verifying all required files exist:"
+      - test -f appspec.yml && echo "✓ appspec.yml found" || echo "✗ appspec.yml missing"
+      - test -f scripts/stop-application.sh && echo "✓ stop-application.sh found" || echo "✗ stop-application.sh missing"
+      - test -f scripts/start-application.sh && echo "✓ start-application.sh found" || echo "✗ start-application.sh missing"
+      - test -f scripts/install-dependencies.sh && echo "✓ install-dependencies.sh found" || echo "✗ install-dependencies.sh missing"
+      - test -f scripts/change-permissions.sh && echo "✓ change-permissions.sh found" || echo "✗ change-permissions.sh missing"
+      - test -f scripts/validate-service.sh && echo "✓ validate-service.sh found" || echo "✗ validate-service.sh missing"
+      - test -f target/Doc_Ohpp-0.0.1-SNAPSHOT.jar && echo "✓ JAR file found" || echo "✗ JAR file missing"
+      - echo "Build artifacts ready for deployment"
 artifacts:
   files:
     - appspec.yml
-    - scripts/*.sh
-    - scripts/README.md
+    - scripts/*
     - target/*.jar
-    - SCRIPTS_PRESENT.txt
   discard-paths: no

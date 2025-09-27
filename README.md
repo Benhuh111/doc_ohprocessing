@@ -249,7 +249,7 @@ java -jar target/Doc_Ohpp-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
 
 For issues and questions:
 1. Check the [documentation](docs/)
-2. Review deployment scripts in [`deployment/scripts/`](deployment/scripts/)
+2. Review deployment scripts in [`deployment/scripts/`](scripts/)
 3. Check application logs for error details
 
 ---

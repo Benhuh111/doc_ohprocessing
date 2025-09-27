@@ -1,61 +1,61 @@
 #!/bin/bash
 
-# Validate service script for Doc_Ohpp Spring Boot application
-# This script checks if the application is running and responding correctly
+# validate-service.sh - Validate that the Doc_Ohpp service is running correctly
 
 APP_DIR="/opt/doc_ohpp"
 PID_FILE="$APP_DIR/application.pid"
 LOG_FILE="$APP_DIR/application.log"
-APP_PORT=8080
-HEALTH_ENDPOINT="http://localhost:$APP_PORT/actuator/health"
+echo "Validating Doc_Ohpp service..."
 
-echo "Validating Doc_Ohpp application..."
-
-# Check if PID file exists
-if [ ! -f $PID_FILE ]; then
-    echo "ERROR: PID file not found. Application may not be running."
-    exit 1
-fi
+# Wait for application to start
+sleep 10
 
 # Check if process is running
-PID=$(cat $PID_FILE)
-if ! ps -p $PID > /dev/null 2>&1; then
-    echo "ERROR: Process with PID $PID is not running."
+PID_FILE="/opt/docohpp/app.pid"
+if [ -f "$PID_FILE" ]; then
+  PID=$(cat $PID_FILE)
+  if ps -p $PID > /dev/null; then
+    echo "✓ Application process is running (PID: $PID)"
+  else
+    echo "✗ Application process not found"
     exit 1
-fi
-
-echo "✓ Process is running with PID $PID"
-
-# Check if port is listening
-if ! netstat -ln | grep :$APP_PORT > /dev/null 2>&1; then
-    echo "ERROR: Application is not listening on port $APP_PORT"
-    exit 1
-fi
-
-echo "✓ Application is listening on port $APP_PORT"
-
-# Check HTTP response (basic connectivity test)
-if command -v curl > /dev/null 2>&1; then
-    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$APP_PORT/ || echo "000")
-    if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "404" ]; then
-        echo "✓ Application is responding to HTTP requests (Status: $HTTP_STATUS)"
-    else
-        echo "WARNING: Unexpected HTTP status: $HTTP_STATUS"
-    fi
+  fi
 else
-    echo "✓ curl not available, skipping HTTP test"
+  echo "✗ PID file not found"
+  exit 1
 fi
 
-# Check recent logs for errors
-if [ -f $LOG_FILE ]; then
-    ERROR_COUNT=$(tail -100 $LOG_FILE | grep -i "error\|exception\|failed" | wc -l)
-    if [ "$ERROR_COUNT" -gt 0 ]; then
-        echo "WARNING: Found $ERROR_COUNT error(s) in recent logs"
-        echo "Recent errors:"
-        tail -100 $LOG_FILE | grep -i "error\|exception\|failed" | tail -5
-    else
-        echo "✓ No recent errors found in logs"
+# Test health endpoint
+echo "Testing health endpoint..."
+HEALTH_URL="http://localhost:8080/api/documents/health"
+
+# Wait up to 60 seconds for application to be ready
+for i in {1..12}; do
+  echo "Attempt $i: Testing $HEALTH_URL"
+  
+  HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $HEALTH_URL || echo "000")
+  
+  if [ "$HTTP_STATUS" -eq 200 ]; then
+    echo "✓ Health check passed (HTTP $HTTP_STATUS)"
+    
+    # Test additional endpoints
+    STATS_URL="http://localhost:8080/api/documents/stats"
+    STATS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $STATS_URL || echo "000")
+    
+    if [ "$STATS_STATUS" -eq 200 ]; then
+      echo "✓ Stats endpoint accessible (HTTP $STATS_STATUS)"
     fi
-fi
+    
+    echo "✓ Service validation successful"
+    exit 0
+  else
+    echo "⚠ Health check returned HTTP $HTTP_STATUS, retrying in 5 seconds..."
+    sleep 5
+  fi
+done
 
-echo "Application validation completed successfully!"
+echo "✗ Service validation failed - health endpoint not responding"
+echo "Checking application logs..."
+tail -20 /opt/docohpp/application.log || echo "No log file found"
+
+exit 1

@@ -1,35 +1,30 @@
 #!/bin/bash
 
-# Install dependencies script for Doc_Ohpp Spring Boot application
-# This script installs Java 21 and other required dependencies
+# install-dependencies.sh - Install system dependencies for Doc_Ohpp
 
-echo "Installing dependencies for Doc_Ohpp application..."
+echo "Installing system dependencies..."
 
-# Update package manager
-sudo yum update -y
+# Update system packages
+yum update -y
 
-# Install Java 21
-echo "Installing Java 21..."
-sudo yum install -y java-21-amazon-corretto-devel
-
-# Set JAVA_HOME
-export JAVA_HOME=/usr/lib/jvm/java-21-amazon-corretto
-echo 'export JAVA_HOME=/usr/lib/jvm/java-21-amazon-corretto' >> ~/.bashrc
-echo 'export PATH=$JAVA_HOME/bin:$PATH' >> ~/.bashrc
-
-# Install AWS X-Ray daemon
-echo "Installing AWS X-Ray daemon..."
-curl https://s3.us-east-2.amazonaws.com/aws-xray-assets.us-east-2/xray-daemon/aws-xray-daemon-3.x.rpm -o /tmp/xray.rpm
-sudo yum install -y /tmp/xray.rpm
+# Install Java 21 if not present
+if ! java -version 2>&1 | grep -q "21"; then
+  echo "Installing Java 21..."
+  yum install -y java-21-amazon-corretto-devel
+else
+  echo "Java 21 already installed"
+fi
 
 # Create application directory
-sudo mkdir -p /opt/doc_ohpp
-sudo chown ec2-user:ec2-user /opt/doc_ohpp
+echo "Creating application directory..."
+mkdir -p /opt/docohpp
+chown ec2-user:ec2-user /opt/docohpp
 
-# Install CloudWatch agent (optional but recommended)
-echo "Installing CloudWatch agent..."
-wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
-sudo rpm -U ./amazon-cloudwatch-agent.rpm
+# Install CloudWatch agent if needed
+if ! command -v /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl &> /dev/null; then
+  echo "Installing CloudWatch agent..."
+  yum install -y amazon-cloudwatch-agent
+fi
 
-echo "Dependencies installation completed!"
-echo "Please log out and log back in to refresh your environment variables."
+echo "System dependencies installed successfully"
+exit 0
