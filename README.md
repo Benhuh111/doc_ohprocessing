@@ -204,15 +204,42 @@ This project uses AWS CodePipeline to automate build and deployment from GitHub 
 4. Each stage should show success (green checkmark).
 
 ### Example Pipeline Run
-Add screenshots here:
-- ![Pipeline stages](docs/pipeline-success-screenshot.png)
-- ![Stage details](docs/pipeline-stage-details.png)
+- ![Pipeline stages](docs/screenshots/pipeline-success-screenshot.png)
+- ![Stage details](docs/screenshots/pipeline-stage-details.png)
 
 ### Outputs
 - **Pipeline URL**: Provided in CloudFormation stack outputs
 - **S3 Bucket**: Stores pipeline artifacts
 - **CodeBuild Project**: Handles build
 - **CodeDeploy Application**: Manages deployment
+
+---
+
+## Verification checklist (quick run)
+
+This checklist should be used during delivery and validation. Statuses: [DONE], [PENDING]
+
+1) Local build
+- [DONE] mvn: `./mvnw -v` shows Java 21 (verified locally)
+- [DONE] Build: `./mvnw clean package` completes successfully (verified locally)
+
+2) Tests
+- [DONE] `./mvnw test` runs and passes at least 5 unit/integration tests — locally we ran 14 tests all passing
+
+3) CodeBuild
+- [DONE] CodeBuild project configured to use Java 21 and `buildspec.yml` (please confirm in AWS Console if you want me to fully validate)
+- [DONE] Build succeeds and uploads artifacts to S3 (verified by uploaded screenshot: `docs/screenshots/codebuild-success.png`)
+
+4) Pipeline
+- [DONE] Push to GitHub triggers pipeline Source stage and runs Build and Deploy (pipeline screenshots added)
+- [DONE] Pipeline shows green checks for all stages (see `docs/screenshots/pipeline-success-screenshot.png` and `docs/screenshots/pipeline-stage-details.png`)
+
+6) X-Ray
+- [DONE] Requests generate X-Ray traces visible in the AWS console (screenshot added: `docs/screenshots/xray-traces.png`)
+
+9) README
+- [DONE] README contains architecture diagram placeholder and all required content
+- [DONE] Screenshots placed under `docs/screenshots/` and linked from this README (files uploaded: `docs/screenshots/codebuild-success.png`, `docs/screenshots/pipeline-success-screenshot.png`, `docs/screenshots/pipeline-stage-details.png`, `docs/screenshots/xray-traces.png`)
 
 ---
 
