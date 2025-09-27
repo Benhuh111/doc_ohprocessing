@@ -1,0 +1,26 @@
+name: Automatic tests
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Corretto) and enable Maven cache
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'corretto'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Make mvnw executable (Unix)
+        if: runner.os != 'Windows'
+        run: chmod +x mvnw
+
+      - name: Build and test with Maven Wrapper
+        run: ./mvnw -B clean test
+

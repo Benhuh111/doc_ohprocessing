@@ -1,7 +1,6 @@
 package com.example.Doc_Ohpp.service;
 
 import com.amazonaws.xray.AWSXRay;
-import com.amazonaws.xray.entities.Segment;
 import com.amazonaws.xray.entities.Subsegment;
 import com.amazonaws.xray.spring.aop.XRayEnabled;
 import com.example.Doc_Ohpp.model.Document;
@@ -45,7 +44,6 @@ public class DocumentProcessingService {
     public Document uploadDocument(MultipartFile file) {
         logger.info("Starting document upload process: fileName={}, size={}", file.getOriginalFilename(), file.getSize());
 
-        // Create custom X-Ray subsegment for document upload
         Subsegment uploadSubsegment = AWSXRay.beginSubsegment("document-upload");
         try {
             // Add annotations for filtering in X-Ray console
