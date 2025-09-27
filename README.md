@@ -234,6 +234,9 @@ This checklist should be used during delivery and validation. Statuses: [DONE], 
 - [DONE] Push to GitHub triggers pipeline Source stage and runs Build and Deploy (pipeline screenshots added)
 - [DONE] Pipeline shows green checks for all stages (see `docs/screenshots/pipeline-success-screenshot.png` and `docs/screenshots/pipeline-stage-details.png`)
 
+5) Application health
+- [DONE] EC2/ECS instances return healthy on `/api/documents/health` (screenshot added: `docs/screenshots/app-health.png`)
+
 6) X-Ray
 - [DONE] Requests generate X-Ray traces visible in the AWS console (screenshot added: `docs/screenshots/xray-traces.png`)
 
