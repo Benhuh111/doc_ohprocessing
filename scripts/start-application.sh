@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# start-application.sh - Script to start the Doc_Ohpp application
+# start-application.sh - Script to start the Doc_Ohpp application with Java 21
 
 echo "Starting Doc_Ohpp application..."
 
@@ -13,25 +13,32 @@ LOG_FILE="$APP_DIR/application.log"
 # Source environment variables
 source /etc/environment 2>/dev/null || true
 source /home/ec2-user/.bashrc 2>/dev/null || true
+source /home/ec2-user/.java_env 2>/dev/null || true
 
-# Find Java with multiple strategies
-echo "Locating Java installation..."
+# Find Java and verify it's Java 21
+echo "Locating Java 21 installation..."
 
 JAVA_CMD=""
 
-# Strategy 1: Check if java is in PATH
-if command -v java >/dev/null 2>&1; then
-    JAVA_CMD="java"
-    echo "Found java in PATH: $(which java)"
+# Strategy 1: Check JAVA_HOME
+if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+    JAVA_CMD="$JAVA_HOME/bin/java"
+    echo "Found Java via JAVA_HOME: $JAVA_CMD"
 fi
 
-# Strategy 2: Check common locations
+# Strategy 2: Check system java
+if [ -z "$JAVA_CMD" ] && command -v java >/dev/null 2>&1; then
+    JAVA_CMD="java"
+    echo "Found Java in PATH: $(which java)"
+fi
+
+# Strategy 3: Check common locations
 if [ -z "$JAVA_CMD" ]; then
     JAVA_LOCATIONS=(
+        "/opt/java/bin/java"
         "/usr/bin/java"
         "/usr/lib/jvm/java-21-amazon-corretto/bin/java"
         "/usr/lib/jvm/java-21-openjdk/bin/java"
-        "/usr/lib/jvm/java-21/bin/java"
     )
     
     for location in "${JAVA_LOCATIONS[@]}"; do
@@ -43,48 +50,24 @@ if [ -z "$JAVA_CMD" ]; then
     done
 fi
 
-# Strategy 3: Find any Java 21 installation
 if [ -z "$JAVA_CMD" ]; then
-    echo "Searching for Java installations..."
-    JAVA_DIRS=$(find /usr/lib/jvm -name "*java-21*" -type d 2>/dev/null)
-    for dir in $JAVA_DIRS; do
-        if [ -x "$dir/bin/java" ]; then
-            JAVA_CMD="$dir/bin/java"
-            echo "Found Java at: $JAVA_CMD"
-            break
-        fi
-    done
-fi
-
-# Strategy 4: Check alternatives
-if [ -z "$JAVA_CMD" ]; then
-    ALT_JAVA=$(alternatives --list | grep java | head -1 | awk '{print $3}' 2>/dev/null)
-    if [ -n "$ALT_JAVA" ] && [ -x "$ALT_JAVA" ]; then
-        JAVA_CMD="$ALT_JAVA"
-        echo "Found Java via alternatives: $JAVA_CMD"
-    fi
-fi
-
-# Final check
-if [ -z "$JAVA_CMD" ]; then
-    echo "ERROR: Java not found on system"
-    echo "=== DEBUG INFO ==="
-    echo "PATH: $PATH"
-    echo "JAVA_HOME: $JAVA_HOME"
-    echo "Available alternatives:"
-    alternatives --list 2>/dev/null | grep java || echo "No Java alternatives"
-    echo "JVM directory contents:"
-    ls -la /usr/lib/jvm/ 2>/dev/null || echo "No JVM directory"
-    echo "Searching entire system for java:"
-    find /usr -name "java" -type f -executable 2>/dev/null | head -5
+    echo "❌ ERROR: No Java installation found"
     exit 1
 fi
 
-# Verify Java works
-echo "Verifying Java installation:"
-$JAVA_CMD -version 2>&1
-if [ $? -ne 0 ]; then
-    echo "ERROR: Java command failed to execute"
+# Verify it's Java 21
+echo "Verifying Java version..."
+JAVA_VERSION_OUTPUT=$($JAVA_CMD -version 2>&1)
+echo "Java version:"
+echo "$JAVA_VERSION_OUTPUT"
+
+if echo "$JAVA_VERSION_OUTPUT" | grep -q "21\." || echo "$JAVA_VERSION_OUTPUT" | grep -q "21+"; then
+    echo "✅ Confirmed Java 21"
+else
+    echo "❌ ERROR: Wrong Java version. Application compiled with Java 21 but runtime is:"
+    echo "$JAVA_VERSION_OUTPUT"
+    echo ""
+    echo "This will cause UnsupportedClassVersionError"
     exit 1
 fi
 
@@ -93,7 +76,7 @@ mkdir -p "$APP_DIR"
 
 # Check if JAR file exists
 if [ ! -f "$JAR_FILE" ]; then
-    echo "Error: JAR file not found at $JAR_FILE"
+    echo "❌ ERROR: JAR file not found at $JAR_FILE"
     echo "Contents of $APP_DIR:"
     ls -la "$APP_DIR/" 2>/dev/null || echo "Directory does not exist"
     exit 1
@@ -124,7 +107,7 @@ if [ -n "$EXISTING_PROCS" ]; then
 fi
 
 # Start the application
-echo "Starting application..."
+echo "Starting application with Java 21..."
 echo "Java command: $JAVA_CMD"
 echo "JAR file: $JAR_FILE"
 echo "Log file: $LOG_FILE"
@@ -144,14 +127,14 @@ echo "Application started with PID: $APP_PID"
 # Wait and verify
 sleep 5
 if ps -p $APP_PID > /dev/null 2>&1; then
-    echo "✓ Application is running successfully"
+    echo "✅ Application is running successfully with Java 21"
     sleep 10  # Give more time to initialize
     exit 0
 else
-    echo "✗ Application failed to start"
+    echo "❌ Application failed to start"
     if [ -f "$LOG_FILE" ]; then
-        echo "--- Application log ---"
-        tail -20 "$LOG_FILE"
+        echo "--- Application log (last 30 lines) ---"
+        tail -30 "$LOG_FILE"
     fi
     rm -f "$PID_FILE"
     exit 1
