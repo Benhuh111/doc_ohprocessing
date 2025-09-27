@@ -13,6 +13,53 @@ LOG_FILE="$APP_DIR/application.log"
 # Ensure application directory exists
 mkdir -p "$APP_DIR"
 
+# Find Java installation
+echo "Locating Java installation..."
+
+# Common Java locations for Amazon Linux
+JAVA_LOCATIONS=(
+  "/usr/lib/jvm/java-21-amazon-corretto/bin/java"
+  "/usr/lib/jvm/java-21-openjdk/bin/java"
+  "/usr/lib/jvm/java-21/bin/java"
+  "/usr/bin/java"
+  "/opt/java/bin/java"
+)
+
+JAVA_CMD=""
+for location in "${JAVA_LOCATIONS[@]}"; do
+  if [ -x "$location" ]; then
+    JAVA_CMD="$location"
+    echo "Found Java at: $JAVA_CMD"
+    break
+  fi
+done
+
+# If not found in common locations, try to find it
+if [ -z "$JAVA_CMD" ]; then
+  echo "Java not found in common locations, searching..."
+  
+  # Try to find java executable
+  JAVA_CMD=$(which java 2>/dev/null)
+  
+  if [ -z "$JAVA_CMD" ]; then
+    # Try alternative search
+    JAVA_CMD=$(find /usr -name "java" -type f -executable 2>/dev/null | head -1)
+  fi
+  
+  if [ -z "$JAVA_CMD" ]; then
+    echo "Error: Java not found on system"
+    echo "Available Java installations:"
+    find /usr -name "java" -type f 2>/dev/null || echo "No Java found"
+    exit 1
+  fi
+  
+  echo "Found Java at: $JAVA_CMD"
+fi
+
+# Verify Java version
+echo "Verifying Java version:"
+$JAVA_CMD -version 2>&1 | head -3
+
 # Check if JAR file exists
 if [ ! -f "$JAR_FILE" ]; then
   echo "Error: JAR file not found at $JAR_FILE"
@@ -66,13 +113,14 @@ fi
 
 # Start the application
 echo "Starting application with Spring profile: prod"
+echo "Java command: $JAVA_CMD"
 echo "JAR file: $JAR_FILE"
 echo "Log file: $LOG_FILE"
 echo "PID file: $PID_FILE"
 
 # Start the application in background
 cd "$APP_DIR"
-nohup java -Xmx512m -Xms256m \
+nohup "$JAVA_CMD" -Xmx512m -Xms256m \
   -Dspring.profiles.active=prod \
   -Dlogging.file.name="$LOG_FILE" \
   -jar "$JAR_FILE" \
