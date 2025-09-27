@@ -55,19 +55,21 @@ Doc_Ohpp/
 │
 ├── 🚀 Deployment & Infrastructure
 │   └── deployment/
-│       ├── scripts/                                  # Deployment scripts
-│       │   ├── start-app.sh                         # Quick start for development
-│       │   ├── start-application.sh                 # Production start script
-│       │   ├── stop-application.sh                  # Graceful shutdown
-│       │   ├── install-dependencies.sh              # Install system dependencies
-│       │   ├── validate-service.sh                  # Health check validation
-│       │   ├── change-permissions.sh                # Set script permissions
-│       │   └── README.md                            # Scripts documentation
 │       ├── aws-codedeploy/                          # CodeDeploy configurations
 │       ├── aws-codepipeline/                        # CodePipeline templates
 │       ├── iam-policies/                            # AWS IAM policy definitions
 │       ├── step-functions/                          # Step Functions workflows
 │       └── README.md                                # Deployment guide
+│
+├── 🔧 Scripts
+│   └── scripts/                                     # Root-level deployment and helper scripts
+│       ├── start-app.sh                             # Quick start for development
+│       ├── start-application.sh                     # Production start script
+│       ├── stop-application.sh                      # Graceful shutdown
+│       ├── install-dependencies.sh                  # Install system dependencies
+│       ├── validate-service.sh                      # Health check validation
+│       ├── change-permissions.sh                    # Set script permissions
+│       └── README.md                                # Scripts documentation
 │
 ├── 📚 Documentation
 │   └── docs/
@@ -96,12 +98,12 @@ java -jar target/Doc_Ohpp-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
 ### Production Deployment (EC2)
 ```bash
 # First-time setup
-./deployment/scripts/install-dependencies.sh
-./deployment/scripts/change-permissions.sh
+./scripts/install-dependencies.sh
+./scripts/change-permissions.sh
 
 # Deploy and start
-./deployment/scripts/start-application.sh
-./deployment/scripts/validate-service.sh
+./scripts/start-application.sh
+./scripts/validate-service.sh
 ```
 
 ## 🌟 Key Features
@@ -248,9 +250,9 @@ This checklist should be used during delivery and validation. Statuses: [DONE], 
 
 ## 📚 Documentation
 
-- [`PROJECT_STRUCTURE.md`](PROJECT_STRUCTURE.md) - Detailed project organization
-- [`deployment/README.md`](deployment/README.md) - Deployment guide
-- [`docs/`](docs/) - Additional documentation and guides
+- PROJECT_STRUCTURE.md - Detailed project organization
+- deployment/README.md - Deployment guide
+- docs/ - Additional documentation and guides
 
 ## 🛠 Development
 
@@ -278,8 +280,8 @@ java -jar target/Doc_Ohpp-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
 ## 📞 Support
 
 For issues and questions:
-1. Check the [documentation](docs/)
-2. Review deployment scripts in [`deployment/scripts/`](scripts/)
+1. Check the documentation in the `docs/` folder
+2. Review deployment scripts in `scripts/` (root)
 3. Check application logs for error details
 
 ---
