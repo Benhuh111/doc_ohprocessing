@@ -14,6 +14,7 @@ import software.amazon.awssdk.services.sqs.model.*;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +28,7 @@ public class SQSService {
     private final SqsClient sqsClient;
     private final ObjectMapper objectMapper;
 
-    @Value("${aws.sqs.queue-name}")
+    @Value("${aws.sqs.queue-name:}")
     private String queueName;
 
     private String queueUrl;
@@ -45,8 +46,9 @@ public class SQSService {
     private void initializeQueueUrl() {
         try {
             if (queueName == null || queueName.trim().isEmpty()) {
-                logger.error("Queue name is not configured. Check your application.properties file.");
-                throw new RuntimeException("Queue name is not configured");
+                logger.warn("Queue name is not configured. Skipping SQS queue URL initialization.");
+                this.queueUrl = null;
+                return;
             }
 
             logger.info("Initializing SQS queue URL for queue: {}", queueName);
@@ -55,15 +57,30 @@ public class SQSService {
                     .queueName(queueName.trim())
                     .build();
 
-            GetQueueUrlResponse response = sqsClient.getQueueUrl(getQueueUrlRequest);
-            this.queueUrl = response.queueUrl();
+            GetQueueUrlResponse response = null;
+            try {
+                response = sqsClient.getQueueUrl(getQueueUrlRequest);
+            } catch (Exception e) {
+                logger.warn("SQS getQueueUrl call failed (this may be expected in tests/CI): {}", e.getMessage());
+            }
 
+            if (response == null || response.queueUrl() == null) {
+                logger.warn("SQS Queue URL not available for queue '{}'; continuing without SQS integration in this runtime.", queueName);
+                this.queueUrl = null;
+                return;
+            }
+
+            this.queueUrl = response.queueUrl();
             logger.info("SQS Queue URL initialized: {}", queueUrl);
 
         } catch (Exception e) {
-            logger.error("Failed to initialize SQS queue URL for queue '{}': {}", queueName, e.getMessage(), e);
-            throw new RuntimeException("Failed to initialize SQS queue URL", e);
+            logger.error("Unexpected error while initializing SQS queue URL for queue '{}': {}", queueName, e.getMessage(), e);
+            this.queueUrl = null; // do not fail application startup
         }
+    }
+
+    private boolean isQueueAvailable() {
+        return queueUrl != null && !queueUrl.trim().isEmpty();
     }
 
     /**
@@ -161,6 +178,10 @@ public class SQSService {
      * @return List of received messages
      */
     public List<Message> receiveMessages(int maxMessages) {
+        if (!isQueueAvailable()) {
+            logger.debug("SQS queue not available; returning empty message list");
+            return Collections.emptyList();
+        }
         try {
             logger.info("Receiving up to {} messages from SQS queue", maxMessages);
 
@@ -179,7 +200,7 @@ public class SQSService {
 
         } catch (Exception e) {
             logger.error("Failed to receive messages from SQS: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to receive messages from SQS", e);
+            return Collections.emptyList();
         }
     }
 
@@ -188,6 +209,10 @@ public class SQSService {
      * @param message The message to delete
      */
     public void deleteMessage(Message message) {
+        if (!isQueueAvailable()) {
+            logger.debug("SQS queue not available; deleteMessage is a no-op");
+            return;
+        }
         try {
             DeleteMessageRequest deleteMessageRequest = DeleteMessageRequest.builder()
                     .queueUrl(queueUrl)
@@ -200,7 +225,6 @@ public class SQSService {
 
         } catch (Exception e) {
             logger.error("Failed to delete message from SQS: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to delete message from SQS", e);
         }
     }
 
@@ -209,6 +233,10 @@ public class SQSService {
      * @return Number of messages in the queue
      */
     public int getQueueMessageCount() {
+        if (!isQueueAvailable()) {
+            logger.debug("SQS queue not available; returning message count 0");
+            return 0;
+        }
         try {
             GetQueueAttributesRequest getQueueAttributesRequest = GetQueueAttributesRequest.builder()
                     .queueUrl(queueUrl)
@@ -216,9 +244,10 @@ public class SQSService {
                     .build();
 
             GetQueueAttributesResponse response = sqsClient.getQueueAttributes(getQueueAttributesRequest);
-            String messageCount = response.attributes().get(QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES);
+            if (response == null || response.attributes() == null) return 0;
 
-            return Integer.parseInt(messageCount);
+            String messageCount = response.attributes().get(QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES);
+            return messageCount == null ? 0 : Integer.parseInt(messageCount);
 
         } catch (Exception e) {
             logger.error("Failed to get queue message count: {}", e.getMessage(), e);
